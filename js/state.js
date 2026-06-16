@@ -8,6 +8,8 @@ export const state = {
   currentLng: null,
   currentName: '',
   currentView: 'grid',
-  radiusKm: 80,
   habitat: null,
+  // ecoregion: { code, name, l2name, l1name, bbox, feature } | null
+  // null = non-US location, falls back to 100km radius
+  ecoregion: null,
 };

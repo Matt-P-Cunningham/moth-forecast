@@ -1,13 +1,19 @@
 import { INATURALIST_API, MOTH_TAXON_ID, BUTTERFLY_TAXON_ID } from '../config.js';
 import { getMonths } from '../utils.js';
 
-export async function fetchINat(lat, lng, radiusKm) {
+export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}) {
   try {
-    // Include needs_id alongside research grade — rural areas have far fewer
-    // verified observations, so needs_id substantially widens species coverage.
+    let geoParams;
+    if (bbox) {
+      // Use ecoregion bounding box for US locations
+      geoParams = `&swlat=${bbox.swlat}&swlng=${bbox.swlng}&nelat=${bbox.nelat}&nelng=${bbox.nelng}`;
+    } else {
+      geoParams = `&lat=${lat}&lng=${lng}&radius=${radiusKm}`;
+    }
+
     const url = `${INATURALIST_API}/observations/species_counts` +
       `?taxon_id=${MOTH_TAXON_ID}&without_taxon_id=${BUTTERFLY_TAXON_ID}` +
-      `&lat=${lat}&lng=${lng}&radius=${radiusKm}` +
+      geoParams +
       `&month=${getMonths()}&quality_grade=research,needs_id` +
       `&per_page=200&order=desc&order_by=observations_count`;
     const res = await fetch(url);

@@ -57,6 +57,19 @@
 .data-source-note{font-size:11px;color:var(--muted);margin:0 0 1rem 2px;line-height:1.4}
 .data-source-note a{color:var(--info)}
 
+/* Ecoregion display */
+.ecoregion-info{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}
+.ecoregion-badge{background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius);padding:10px 14px;flex:1;min-width:0}
+.ecoregion-name{font-size:15px;font-weight:700;color:var(--accent-text);line-height:1.3}
+.ecoregion-crumb{font-size:11px;color:var(--accent-text);opacity:0.75;margin-top:2px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.ecoregion-sep{opacity:0.4}
+.ecoregion-hint{font-size:11px;color:var(--muted);flex-shrink:0;max-width:160px;line-height:1.4;text-align:right}
+.ecoregion-note{font-size:12px;color:var(--muted);margin-top:8px;padding:8px 12px;background:var(--amber-light);border-radius:var(--radius-sm);border:1px solid var(--border)}
+
+/* Ecoregion Leaflet tooltip */
+.eco-tooltip{background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.eco-tooltip-current{background:var(--accent-light);border-color:var(--accent);color:var(--accent-text)}
+
 /* Habitat card (new) */
 .habitat-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .habitat-pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--accent-light);color:var(--accent-text);letter-spacing:0.2px}

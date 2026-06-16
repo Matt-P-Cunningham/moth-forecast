@@ -6,14 +6,22 @@ const LEPIDOPTERA_KEY = 797;
 // GBIF taxon keys for superfamilies to exclude (Papilionoidea = butterflies)
 const BUTTERFLY_KEYS = [5473, 6953, 6954]; // Papilionidae, Pieridae, Nymphalidae superfamilies
 
-export async function fetchGBIF(lat, lng, radiusKm) {
+export async function fetchGBIF(lat, lng, { bbox, radiusKm = 100 } = {}) {
   try {
     const months = getMonths().split(',');
     const monthParams = months.map(m => `month=${m}`).join('&');
-    // No basisOfRecord filter — include citizen science, museum specimens,
-    // and literature records. Rural areas rely heavily on specimen data.
+
+    // Use WKT bounding box for ecoregion queries; fall back to radius for non-US
+    let geoParam;
+    if (bbox) {
+      const wkt = `POLYGON((${bbox.swlng} ${bbox.swlat},${bbox.nelng} ${bbox.swlat},${bbox.nelng} ${bbox.nelat},${bbox.swlng} ${bbox.nelat},${bbox.swlng} ${bbox.swlat}))`;
+      geoParam = `&geometry=${encodeURIComponent(wkt)}`;
+    } else {
+      geoParam = `&decimalLatitude=${lat}&decimalLongitude=${lng}&radius=${radiusKm}`;
+    }
+
     const url = `${GBIF_API}/occurrence/search?taxonKey=${LEPIDOPTERA_KEY}` +
-      `&decimalLatitude=${lat}&decimalLongitude=${lng}&radius=${radiusKm}` +
+      geoParam +
       `&${monthParams}` +
       `&facet=speciesKey&facetLimit=200&limit=0`;
     const res = await fetch(url);

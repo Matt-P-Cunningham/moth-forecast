@@ -1,12 +1,17 @@
 import { state } from './state.js';
-import { saveRadius } from './storage.js';
 import { ICONS } from './icons.js';
 
-let onPickCallback = null;
+const STYLE_CURRENT   = { color: '#3d6b2e', weight: 2.5, fillColor: '#3d6b2e', fillOpacity: 0.15, dashArray: null };
+const STYLE_NEIGHBOR  = { color: '#6b6960', weight: 1,   fillColor: '#6b6960', fillOpacity: 0.06, dashArray: '4 3' };
+const STYLE_HOVER     = { fillOpacity: 0.18, color: '#3d6b2e', weight: 2 };
+
+let _onPickCallback = null;
+let _ecoLayerGroup = null;
 
 export function initMap(lat, lng, onPick) {
-  onPickCallback = onPick;
-  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lng], 8);
+  _onPickCallback = onPick;
+
+  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lng], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: '&copy; OpenStreetMap contributors'
@@ -20,48 +25,63 @@ export function initMap(lat, lng, onPick) {
   });
 
   const marker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(map);
-  const circle = L.circle([lat, lng], {
-    radius: state.radiusKm * 1000,
-    color: '#3d6b2e', weight: 1, fillColor: '#3d6b2e', fillOpacity: 0.08
-  }).addTo(map);
 
   marker.on('dragend', e => {
     const ll = e.target.getLatLng();
-    circle.setLatLng(ll);
-    onPickCallback(ll.lat, ll.lng);
+    _onPickCallback(ll.lat, ll.lng);
   });
 
   map.on('click', e => {
+    // Only respond to direct map clicks, not clicks on ecoregion polygons
     marker.setLatLng(e.latlng);
-    circle.setLatLng(e.latlng);
-    onPickCallback(e.latlng.lat, e.latlng.lng);
+    _onPickCallback(e.latlng.lat, e.latlng.lng);
   });
+
+  _ecoLayerGroup = L.layerGroup().addTo(map);
 
   state._map = map;
   state._marker = marker;
-  state._circle = circle;
 }
 
 export function placeMarker(lat, lng, pan) {
   if (!state._map) return;
   state._marker.setLatLng([lat, lng]);
-  state._circle.setLatLng([lat, lng]);
-  if (pan) state._map.setView([lat, lng], Math.max(state._map.getZoom(), 8));
+  if (pan) state._map.setView([lat, lng], Math.max(state._map.getZoom(), 6));
 }
 
 export function setMapZoom(zoom) {
   if (state._map) state._map.setZoom(zoom);
 }
 
-export function onRadiusInput(val) {
-  state.radiusKm = parseInt(val, 10);
-  document.getElementById('radius-value').textContent = state.radiusKm + ' km';
-  if (state._circle) state._circle.setRadius(state.radiusKm * 1000);
+export function setEcoregionLayers(currentFeature, neighborFeatures, onNeighborClick) {
+  if (!_ecoLayerGroup) return;
+  _ecoLayerGroup.clearLayers();
+
+  // Draw neighbors first (below current)
+  for (const feat of neighborFeatures) {
+    const layer = L.geoJSON(feat, { style: STYLE_NEIGHBOR });
+    layer.on('mouseover', () => layer.setStyle(STYLE_HOVER));
+    layer.on('mouseout',  () => layer.setStyle(STYLE_NEIGHBOR));
+    layer.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      onNeighborClick(feat.properties.US_L3CODE, feat);
+    });
+    layer.bindTooltip(feat.properties.US_L3NAME, { sticky: true, className: 'eco-tooltip' });
+    layer.addTo(_ecoLayerGroup);
+  }
+
+  // Draw current ecoregion on top
+  const current = L.geoJSON(currentFeature, { style: STYLE_CURRENT });
+  current.bindTooltip(currentFeature.properties.US_L3NAME, { sticky: true, className: 'eco-tooltip eco-tooltip-current' });
+  current.addTo(_ecoLayerGroup);
+
+  // Fit map to current ecoregion bounds with some padding
+  try {
+    const bounds = L.geoJSON(currentFeature).getBounds();
+    state._map.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });
+  } catch(e) {}
 }
 
-export function onRadiusChange(val, reloadFn) {
-  state.radiusKm = parseInt(val, 10);
-  saveRadius(state.radiusKm);
-  if (state._circle) state._circle.setRadius(state.radiusKm * 1000);
-  if (state.currentLat != null) reloadFn();
+export function clearEcoregionLayers() {
+  if (_ecoLayerGroup) _ecoLayerGroup.clearLayers();
 }

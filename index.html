@@ -38,21 +38,26 @@
 
     <div class="map-section">
       <div class="map-wrap">
-        <div class="map-hint"><span class="icon icon-muted" aria-hidden="true" id="icon-maphint"></span> Click the map or drag the pin to choose a spot</div>
+        <div class="map-hint"><span class="icon icon-muted" aria-hidden="true" id="icon-maphint"></span> Drop a pin — ecoregion boundary loads automatically</div>
         <div id="map"></div>
       </div>
-      <div class="radius-control">
-        <label for="radius-input">Search radius</label>
-        <input type="range" id="radius-input" min="10" max="200" step="10" value="80"
-          oninput="window.__mothApp.onRadiusInput(this.value)"
-          onchange="window.__mothApp.onRadiusChange(this.value)"
-          aria-label="Search radius in kilometers">
-        <span class="radius-value" id="radius-value">80 km</span>
+
+      <div class="ecoregion-info" id="ecoregion-info" style="display:none">
+        <div class="ecoregion-badge">
+          <div class="ecoregion-name" id="ecoregion-name"></div>
+          <div class="ecoregion-crumb">
+            <span id="ecoregion-l2"></span>
+            <span class="ecoregion-sep">·</span>
+            <span id="ecoregion-l1"></span>
+          </div>
+        </div>
+        <div class="ecoregion-hint">Click a neighboring region on the map to switch</div>
       </div>
+      <div class="ecoregion-note" id="ecoregion-note" style="display:none"></div>
     </div>
 
     <p class="privacy-note">
-      <strong>Location privacy:</strong> coordinates are sent to iNaturalist, GBIF, Open-Meteo, OpenStreetMap/Nominatim, and Overpass API to retrieve species, forecast, habitat, and place data. Your last selected location and radius are stored only in this browser using localStorage.
+      <strong>Location privacy:</strong> coordinates are sent to iNaturalist, GBIF, Open-Meteo, OpenStreetMap/Nominatim, Overpass API, and the EPA ArcGIS service to retrieve species, forecast, habitat, ecoregion, and place data. Your last selected location is stored only in this browser.
     </p>
     <div class="status-bar" id="status"></div>
   </div>
@@ -73,7 +78,10 @@
   <div id="conditions-section" style="display:none">
     <div class="conditions" id="conditions-grid"></div>
     <div class="data-source-note">
-      Hourly forecast from <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · Location from <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener noreferrer">Nominatim</a> · Habitat from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass/OSM</a>. Scores are heuristic estimates.
+      Hourly forecast from <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
+      Location from <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener noreferrer">Nominatim</a> ·
+      Habitat from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass/OSM</a> ·
+      Ecoregions from <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level III</a>. Scores are heuristic estimates.
     </div>
     <div class="likelihood-banner" id="likelihood-banner">
       <div class="likelihood-left">
@@ -124,6 +132,7 @@
   Observations: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a> ·
   Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
   Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> via Overpass API ·
+  Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level III</a> ·
   Map tiles: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> ·
   Inspired by <a href="https://connect-apps.ceh.ac.uk/whats_flying_tonight/" target="_blank" rel="noopener noreferrer">CEH What's Flying Tonight</a>
 </footer>
@@ -132,14 +141,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script type="module" src="js/app.js"></script>
-<script>
-// Wire select dropdowns to renderMoths after module loads
-// (module sets window.__mothApp.renderMoths once ready)
-document.querySelectorAll('#sort-sel, #freq-sel, #habitat-sel').forEach(el => {
-  el.addEventListener('change', () => {
-    if (window.__mothApp && window.__mothApp.renderMoths) window.__mothApp.renderMoths();
-  });
-});
-</script>
 </body>
 </html>
