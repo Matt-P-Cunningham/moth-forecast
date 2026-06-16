@@ -10,12 +10,12 @@ export async function fetchGBIF(lat, lng, radiusKm) {
   try {
     const months = getMonths().split(',');
     const monthParams = months.map(m => `month=${m}`).join('&');
-    // Get species occurrence counts via facet
+    // No basisOfRecord filter — include citizen science, museum specimens,
+    // and literature records. Rural areas rely heavily on specimen data.
     const url = `${GBIF_API}/occurrence/search?taxonKey=${LEPIDOPTERA_KEY}` +
       `&decimalLatitude=${lat}&decimalLongitude=${lng}&radius=${radiusKm}` +
       `&${monthParams}` +
-      `&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=MACHINE_OBSERVATION` +
-      `&facet=speciesKey&facetLimit=80&limit=0`;
+      `&facet=speciesKey&facetLimit=200&limit=0`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('GBIF API error');
     const data = await res.json();
@@ -24,7 +24,7 @@ export async function fetchGBIF(lat, lng, radiusKm) {
     if (!facets || !facets.counts || !facets.counts.length) return [];
 
     // Fetch species details in batches of 10 (parallel)
-    const counts = facets.counts.slice(0, 60);
+    const counts = facets.counts.slice(0, 200);
     const BATCH = 10;
     const species = [];
     for (let i = 0; i < counts.length; i += BATCH) {

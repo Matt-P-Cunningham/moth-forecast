@@ -7,28 +7,34 @@ export async function fetchAllSpecies(lat, lng, radiusKm) {
     fetchGBIF(lat, lng, radiusKm),
   ]);
 
-  if (!inatResults) return null;
+  // Both failed
+  if (!inatResults && !gbifResults.length) return null;
 
-  // Build lookup by scientific name from iNat (primary source)
   const byName = new Map();
-  for (const m of inatResults) {
-    byName.set(normalizeKey(m.sci), m);
+
+  // Index iNat results (may be null if fetch failed)
+  for (const m of (inatResults || [])) {
+    byName.set(normalizeKey(m.sci), { ...m, inatCount: m.count });
   }
 
-  // Merge GBIF results: enrich iNat records with GBIF habitat data,
-  // or append GBIF-only species not found in iNat
+  // Merge GBIF as an equal peer — combine counts and enrich metadata
   for (const g of gbifResults) {
     const key = normalizeKey(g.sci);
     if (byName.has(key)) {
-      // Enrich existing iNat record with GBIF habitat affinities
       const existing = byName.get(key);
       existing.gbifKey = g.gbifKey;
+      // Combined count: sum of distinct records from each source
+      existing.inatCount = existing.inatCount ?? existing.count;
+      existing.gbifCount = g.count;
+      existing.count = (existing.inatCount || 0) + (existing.gbifCount || 0);
+      existing.source = 'both';
       if (g.habitatAffinity.length && !existing.habitatAffinity.length) {
         existing.habitatAffinity = g.habitatAffinity;
       }
+      // Prefer iNat photo but fall back to GBIF photo if iNat has none
+      if (!existing.photo && g.photo) existing.photo = g.photo;
     } else {
-      // Add as GBIF-only species
-      byName.set(key, g);
+      byName.set(key, { ...g, gbifCount: g.count });
     }
   }
 

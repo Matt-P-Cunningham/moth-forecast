@@ -3,11 +3,13 @@ import { getMonths } from '../utils.js';
 
 export async function fetchINat(lat, lng, radiusKm) {
   try {
+    // Include needs_id alongside research grade — rural areas have far fewer
+    // verified observations, so needs_id substantially widens species coverage.
     const url = `${INATURALIST_API}/observations/species_counts` +
       `?taxon_id=${MOTH_TAXON_ID}&without_taxon_id=${BUTTERFLY_TAXON_ID}` +
       `&lat=${lat}&lng=${lng}&radius=${radiusKm}` +
-      `&month=${getMonths()}&quality_grade=research` +
-      `&per_page=60&order=desc&order_by=observations_count`;
+      `&month=${getMonths()}&quality_grade=research,needs_id` +
+      `&per_page=200&order=desc&order_by=observations_count`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('iNat API error');
     const data = await res.json();

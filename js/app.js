@@ -95,8 +95,10 @@ async function fetchAll(lat, lng, locationName) {
   }
 
   const total = state.allMoths.reduce((s, m) => s + m.count, 0);
-  const gbifCount = state.allMoths.filter(m => m.source === 'gbif').length;
-  const sourceNote = gbifCount > 0 ? ` · ${gbifCount} from GBIF` : '';
+  const inatOnly = state.allMoths.filter(m => m.source === 'inat').length;
+  const gbifOnly = state.allMoths.filter(m => m.source === 'gbif').length;
+  const both = state.allMoths.filter(m => m.source === 'both').length;
+  const sourceNote = ` · iNat: ${inatOnly + both} · GBIF: ${gbifOnly + both}`;
   setStatus(`${state.allMoths.length} species · ${total.toLocaleString()} records within ${state.radiusKm}km of ${locationName}${sourceNote}`);
 
   document.getElementById('controls-section').style.display = 'block';

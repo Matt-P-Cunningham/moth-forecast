@@ -58,7 +58,7 @@ export function openModal(id) {
           <h3>Observation data</h3>
           <div class="modal-stats">
             <div class="modal-stat"><div class="modal-stat-label">Records nearby</div><div class="modal-stat-value">${m.count.toLocaleString()}</div></div>
-            <div class="modal-stat"><div class="modal-stat-label">Source</div><div class="modal-stat-value">${m.source === 'gbif' ? 'GBIF' : 'iNaturalist'}</div></div>
+            <div class="modal-stat"><div class="modal-stat-label">Source</div><div class="modal-stat-value">${m.source === 'both' ? 'iNat + GBIF' : m.source === 'gbif' ? 'GBIF' : 'iNaturalist'}</div></div>
           </div>
         </div>
         <div class="modal-section">
