@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moth Forecast — Global</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/map.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div>
+      <h1><span class="icon icon-md" id="header-moon-icon" aria-hidden="true"></span> Moth Forecast</h1>
+      <p>Global moths · iNaturalist &amp; GBIF · Open-Meteo · <span id="header-date"></span></p>
+    </div>
+  </div>
+  <div class="moon-phase-pill" id="moon-pill" style="display:none">
+    <span class="icon icon-md" id="moon-icon-pill" aria-hidden="true"></span>
+    <div>
+      <div style="font-size:13px;font-weight:600" id="moon-name-pill">Full Moon</div>
+      <div style="font-size:11px;color:var(--muted)" id="moon-illum-pill">100% illuminated</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="search-card">
+    <div class="search-row">
+      <input type="text" id="loc-input" placeholder="Enter city, region/country, or postal code…" autocomplete="off" />
+      <button class="btn btn-primary" onclick="window.__mothApp.searchByText()"><span class="icon" aria-hidden="true" id="icon-search"></span> Search</button>
+      <button class="btn" onclick="window.__mothApp.geoLocate()"><span class="icon" aria-hidden="true" id="icon-mylocation"></span> My location</button>
+    </div>
+
+    <div class="map-section">
+      <div class="map-wrap">
+        <div class="map-hint"><span class="icon icon-muted" aria-hidden="true" id="icon-maphint"></span> Click the map or drag the pin to choose a spot</div>
+        <div id="map"></div>
+      </div>
+      <div class="radius-control">
+        <label for="radius-input">Search radius</label>
+        <input type="range" id="radius-input" min="10" max="200" step="10" value="80"
+          oninput="window.__mothApp.onRadiusInput(this.value)"
+          onchange="window.__mothApp.onRadiusChange(this.value)"
+          aria-label="Search radius in kilometers">
+        <span class="radius-value" id="radius-value">80 km</span>
+      </div>
+    </div>
+
+    <p class="privacy-note">
+      <strong>Location privacy:</strong> coordinates are sent to iNaturalist, GBIF, Open-Meteo, OpenStreetMap/Nominatim, and Overpass API to retrieve species, forecast, habitat, and place data. Your last selected location and radius are stored only in this browser using localStorage.
+    </p>
+    <div class="status-bar" id="status"></div>
+  </div>
+
+  <div id="timeline-section" class="timeline-section" style="display:none">
+    <div class="timeline-card">
+      <div class="timeline-controls">
+        <button class="tl-nav-btn" id="prev-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex - 1)" aria-label="Previous hour"><span class="icon" id="icon-chevleft" aria-hidden="true"></span></button>
+        <div id="selected-time-label">—</div>
+        <button class="tl-nav-btn" id="next-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex + 1)" aria-label="Next hour"><span class="icon" id="icon-chevright" aria-hidden="true"></span></button>
+        <span class="peak-badge" id="peak-badge"><span class="icon" id="icon-star-badge" aria-hidden="true"></span>Peak time</span>
+        <button class="btn now-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.nowIndex)">Now</button>
+      </div>
+      <div class="timeline-scroll" id="timeline-scroll"></div>
+    </div>
+  </div>
+
+  <div id="conditions-section" style="display:none">
+    <div class="conditions" id="conditions-grid"></div>
+    <div class="data-source-note">
+      Hourly forecast from <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · Location from <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener noreferrer">Nominatim</a> · Habitat from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass/OSM</a>. Scores are heuristic estimates.
+    </div>
+    <div class="likelihood-banner" id="likelihood-banner">
+      <div class="likelihood-left">
+        <h2 id="likelihood-label">Excellent conditions</h2>
+        <p id="likelihood-desc">Warm, calm, and dark — ideal for moths</p>
+      </div>
+      <div class="likelihood-score" id="likelihood-score">92<span>/100</span></div>
+    </div>
+  </div>
+
+  <div id="controls-section" style="display:none">
+    <div class="controls-row">
+      <label>Sort:</label>
+      <select id="sort-sel">
+        <option value="score">Flight likelihood</option>
+        <option value="count">Most observed</option>
+        <option value="alpha">Name A–Z</option>
+      </select>
+      <label style="margin-left:8px">Frequency:</label>
+      <select id="freq-sel">
+        <option value="">All species</option>
+        <option value="common">Common (100+ records)</option>
+        <option value="occasional">Occasional (21–100)</option>
+        <option value="rare">Rare (1–20)</option>
+      </select>
+      <label style="margin-left:8px">Habitat:</label>
+      <select id="habitat-sel">
+        <option value="">All habitats</option>
+        <option value="forest">Forest</option>
+        <option value="wetland">Wetland</option>
+        <option value="grassland">Grassland</option>
+        <option value="shrubland">Shrubland</option>
+        <option value="farmland">Farmland</option>
+        <option value="urban">Urban</option>
+        <option value="coastal">Coastal</option>
+      </select>
+      <span class="result-count" id="result-count"></span>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-grid" onclick="window.__mothApp.setView('grid')" title="Grid view" aria-label="Grid view"><span class="icon" id="icon-grid" aria-hidden="true"></span></button>
+        <button class="view-btn" id="btn-list" onclick="window.__mothApp.setView('list')" title="List view" aria-label="List view"><span class="icon" id="icon-list" aria-hidden="true"></span></button>
+      </div>
+    </div>
+    <div id="results"></div>
+  </div>
+</main>
+
+<footer>
+  Observations: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a> ·
+  Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
+  Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> via Overpass API ·
+  Map tiles: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> ·
+  Inspired by <a href="https://connect-apps.ceh.ac.uk/whats_flying_tonight/" target="_blank" rel="noopener noreferrer">CEH What's Flying Tonight</a>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+<script>
+// Wire select dropdowns to renderMoths after module loads
+// (module sets window.__mothApp.renderMoths once ready)
+document.querySelectorAll('#sort-sel, #freq-sel, #habitat-sel').forEach(el => {
+  el.addEventListener('change', () => {
+    if (window.__mothApp && window.__mothApp.renderMoths) window.__mothApp.renderMoths();
+  });
+});
+</script>
+</body>
+</html>
