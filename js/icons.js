@@ -18,6 +18,9 @@ export const ICONS = {
   chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
   star: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.9-5 4.9 1.2 6.9L12 17.8 5.9 21l1.2-6.9-5-4.9 6.9-.9z"/></svg>`,
   map: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
+  expand: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+  compress: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`,
+  mothSilhouette: `<svg viewBox="0 0 80 64" fill="currentColor"><ellipse cx="40" cy="40" rx="3.5" ry="14"/><circle cx="40" cy="25" r="4.5"/><path d="M40 30 C27 21 10 23 7 34 C13 40 28 37 40 35Z"/><path d="M40 30 C53 21 70 23 73 34 C67 40 52 37 40 35Z"/><path d="M40 40 C29 40 12 48 14 56 C25 54 34 46 40 44Z"/><path d="M40 40 C51 40 68 48 66 56 C55 54 46 46 40 44Z"/><path d="M37 22 Q29 13 25 7" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="25" cy="7" r="2.5"/><path d="M43 22 Q51 13 55 7" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="55" cy="7" r="2.5"/></svg>`,
 };
 
 export function moonPhaseSVG(fraction) {

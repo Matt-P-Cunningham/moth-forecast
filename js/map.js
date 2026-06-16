@@ -1,12 +1,19 @@
 import { state } from './state.js';
 import { ICONS } from './icons.js';
 
-const STYLE_CURRENT   = { color: '#3d6b2e', weight: 2.5, fillColor: '#3d6b2e', fillOpacity: 0.15, dashArray: null };
-const STYLE_NEIGHBOR  = { color: '#6b6960', weight: 1,   fillColor: '#6b6960', fillOpacity: 0.06, dashArray: '4 3' };
-const STYLE_HOVER     = { fillOpacity: 0.18, color: '#3d6b2e', weight: 2 };
+const STYLE_CURRENT = {
+  color: '#3d6b2e', weight: 2, fillColor: '#4a7c59', fillOpacity: 0.15,
+};
+const STYLE_NEIGHBOR_HIDDEN = {
+  color: 'transparent', weight: 0, fillColor: '#000', fillOpacity: 0.001,
+};
+const STYLE_NEIGHBOR_HOVER = {
+  color: '#7aab8a', weight: 1.5, fillColor: '#4a7c59', fillOpacity: 0.08,
+};
 
 let _onPickCallback = null;
 let _ecoLayerGroup = null;
+let _mapExpanded = false;
 
 export function initMap(lat, lng, onPick) {
   _onPickCallback = onPick;
@@ -32,7 +39,6 @@ export function initMap(lat, lng, onPick) {
   });
 
   map.on('click', e => {
-    // Only respond to direct map clicks, not clicks on ecoregion polygons
     marker.setLatLng(e.latlng);
     _onPickCallback(e.latlng.lat, e.latlng.lng);
   });
@@ -41,6 +47,20 @@ export function initMap(lat, lng, onPick) {
 
   state._map = map;
   state._marker = marker;
+}
+
+export function toggleMapExpand() {
+  _mapExpanded = !_mapExpanded;
+  const wrap = document.querySelector('.map-wrap');
+  const btn = document.getElementById('map-expand-btn');
+  const iconEl = document.getElementById('icon-mapexpand');
+  wrap.classList.toggle('map-expanded', _mapExpanded);
+  if (iconEl) iconEl.innerHTML = _mapExpanded ? ICONS.compress : ICONS.expand;
+  if (btn) btn.title = _mapExpanded ? 'Collapse map' : 'Expand map';
+  if (state._map) {
+    // Wait for CSS transition to finish before invalidating size
+    setTimeout(() => state._map.invalidateSize(), 310);
+  }
 }
 
 export function placeMarker(lat, lng, pan) {
@@ -57,25 +77,26 @@ export function setEcoregionLayers(currentFeature, neighborFeatures, onNeighborC
   if (!_ecoLayerGroup) return;
   _ecoLayerGroup.clearLayers();
 
-  // Draw neighbors first (below current)
+  // Neighbors: invisible until hover
   for (const feat of neighborFeatures) {
-    const layer = L.geoJSON(feat, { style: STYLE_NEIGHBOR });
-    layer.on('mouseover', () => layer.setStyle(STYLE_HOVER));
-    layer.on('mouseout',  () => layer.setStyle(STYLE_NEIGHBOR));
+    const name = feat.properties.US_L4NAME || feat.properties.US_L3NAME || '';
+    const layer = L.geoJSON(feat, { style: STYLE_NEIGHBOR_HIDDEN, smoothFactor: 1.5 });
+    layer.on('mouseover', () => layer.setStyle(STYLE_NEIGHBOR_HOVER));
+    layer.on('mouseout',  () => layer.setStyle(STYLE_NEIGHBOR_HIDDEN));
     layer.on('click', e => {
       L.DomEvent.stopPropagation(e);
-      onNeighborClick(feat.properties.US_L3CODE, feat);
+      onNeighborClick(feat.properties.US_L4CODE, feat);
     });
-    layer.bindTooltip(feat.properties.US_L3NAME, { sticky: true, className: 'eco-tooltip' });
+    if (name) layer.bindTooltip(name, { sticky: true, className: 'eco-tip' });
     layer.addTo(_ecoLayerGroup);
   }
 
-  // Draw current ecoregion on top
-  const current = L.geoJSON(currentFeature, { style: STYLE_CURRENT });
-  current.bindTooltip(currentFeature.properties.US_L3NAME, { sticky: true, className: 'eco-tooltip eco-tooltip-current' });
+  // Current ecoregion: clean filled polygon on top
+  const name = currentFeature.properties.US_L4NAME || currentFeature.properties.US_L3NAME || '';
+  const current = L.geoJSON(currentFeature, { style: STYLE_CURRENT, smoothFactor: 1.5 });
+  if (name) current.bindTooltip(name, { sticky: true, className: 'eco-tip eco-tip-current' });
   current.addTo(_ecoLayerGroup);
 
-  // Fit map to current ecoregion bounds with some padding
   try {
     const bounds = L.geoJSON(currentFeature).getBounds();
     state._map.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });

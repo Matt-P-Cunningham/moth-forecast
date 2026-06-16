@@ -3,8 +3,8 @@ import { getMonths } from '../utils.js';
 
 // GBIF taxon key for order Lepidoptera
 const LEPIDOPTERA_KEY = 797;
-// GBIF taxon keys for superfamilies to exclude (Papilionoidea = butterflies)
-const BUTTERFLY_KEYS = [5473, 6953, 6954]; // Papilionidae, Pieridae, Nymphalidae superfamilies
+// Butterfly families to exclude — moths only
+const BUTTERFLY_FAMILIES = new Set(['papilionidae','pieridae','nymphalidae','lycaenidae','riodinidae','hesperiidae']);
 
 export async function fetchGBIF(lat, lng, { bbox, radiusKm = 100 } = {}) {
   try {
@@ -50,8 +50,9 @@ async function fetchGBIFSpecies(speciesKey, count) {
     if (!res.ok) return null;
     const t = await res.json();
 
-    // Skip if classified under butterfly families
-    if (BUTTERFLY_KEYS.some(k => t.familyKey === k || t.orderKey === k)) return null;
+    // Skip butterflies by family name (reliable) and common name fallback
+    if (t.family && BUTTERFLY_FAMILIES.has(t.family.toLowerCase())) return null;
+    if (t.vernacularName && t.vernacularName.toLowerCase().includes('butterfly')) return null;
     // Skip if order is not Lepidoptera
     if (t.order && t.order.toLowerCase() !== 'lepidoptera') return null;
 
@@ -83,6 +84,22 @@ async function fetchGBIFSpecies(speciesKey, count) {
       source: 'gbif',
       habitatAffinity: parseGBIFHabitats(t),
       inatId: null,
+    };
+  } catch(e) { return null; }
+}
+
+export async function fetchGBIFPhoto(gbifKey) {
+  try {
+    const res = await fetch(`${GBIF_API}/species/${gbifKey}/media?limit=1&type=StillImage`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const img = (data.results || [])[0];
+    if (!img || !img.identifier) return null;
+    return {
+      url: img.identifier,
+      attribution: img.creator || img.rightsHolder || 'GBIF contributor',
+      licenseCode: img.license ? img.license.split('/').filter(Boolean).slice(-2).join('-') : '',
+      pageUrl: `https://www.gbif.org/species/${gbifKey}`,
     };
   } catch(e) { return null; }
 }

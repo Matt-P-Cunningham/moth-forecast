@@ -1,6 +1,7 @@
-const EPA_LAYER = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/11';
-// 0.05° ≈ 5km simplification — keeps polygons to ~150-400 vertices for Leaflet
-const SIMPLIFY = '0.05';
+// Layer 7 = Level IV Ecoregion Polygons (much finer than L3 layer 11)
+// L4 names: "Absaroka Volcanic Subalpine Zone", "Alpine Zone", "Rolling Sagebrush Steppe", etc.
+const EPA_LAYER = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/7';
+const SIMPLIFY = '0.003'; // 0.003° ≈ 300m — detailed enough for smooth rendering
 
 export async function fetchEcoregionAtPoint(lat, lng) {
   const params = new URLSearchParams({
@@ -8,7 +9,7 @@ export async function fetchEcoregionAtPoint(lat, lng) {
     geometryType: 'esriGeometryPoint',
     inSR: '4326',
     spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'US_L3CODE,US_L3NAME,NA_L2NAME,NA_L1NAME',
+    outFields: 'US_L4CODE,US_L4NAME,US_L3NAME,NA_L2NAME,NA_L1NAME',
     returnGeometry: 'true',
     outSR: '4326',
     maxAllowableOffset: SIMPLIFY,
@@ -34,7 +35,7 @@ export async function fetchNeighboringEcoregions(bbox, excludeCode) {
     geometryType: 'esriGeometryEnvelope',
     inSR: '4326',
     spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'US_L3CODE,US_L3NAME,NA_L2NAME,NA_L1NAME',
+    outFields: 'US_L4CODE,US_L4NAME,US_L3NAME,NA_L2NAME,NA_L1NAME',
     returnGeometry: 'true',
     outSR: '4326',
     maxAllowableOffset: SIMPLIFY,
@@ -45,7 +46,7 @@ export async function fetchNeighboringEcoregions(bbox, excludeCode) {
     if (!res.ok) return [];
     const data = await res.json();
     return (data.features || [])
-      .filter(f => f.properties.US_L3CODE !== excludeCode)
+      .filter(f => f.properties.US_L4CODE !== excludeCode)
       .map(featureToEco);
   } catch(e) { return []; }
 }
@@ -53,8 +54,9 @@ export async function fetchNeighboringEcoregions(bbox, excludeCode) {
 function featureToEco(feat) {
   const p = feat.properties;
   return {
-    code: p.US_L3CODE,
-    name: p.US_L3NAME,
+    code: p.US_L4CODE,
+    name: p.US_L4NAME,
+    l3name: p.US_L3NAME,  // Level III as regional context
     l2name: p.NA_L2NAME,
     l1name: p.NA_L1NAME,
     bbox: computeBbox(feat.geometry),

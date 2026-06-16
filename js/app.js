@@ -1,3 +1,7 @@
+// PLANNED: "Identify" tab — interactive dichotomous key for moth identification.
+// Visual branching key with photos at each decision node (wing shape, pattern, color, size).
+// Stub is already wired into the nav (marked "Coming soon"). Build as js/identify/ module.
+
 import { state } from './state.js';
 import { ICONS, moonPhaseSVG } from './icons.js';
 import { todayStr } from './utils.js';
@@ -7,7 +11,7 @@ import { fetchAllSpecies } from './species/index.js';
 import { fetchHabitat } from './habitat/index.js';
 import { fetchEcoregionAtPoint, fetchNeighboringEcoregions } from './ecoregion.js';
 import { geocodeText, reverseGeocode, getBrowserLocation } from './geo.js';
-import { initMap, placeMarker, setMapZoom, setEcoregionLayers, clearEcoregionLayers } from './map.js';
+import { initMap, placeMarker, setMapZoom, setEcoregionLayers, clearEcoregionLayers, toggleMapExpand } from './map.js';
 import { loadSavedLocation, saveLocation } from './storage.js';
 import { selectHour } from './ui/timeline.js';
 import { renderMoths, setView } from './ui/moths.js';
@@ -23,8 +27,10 @@ window.__mothApp = {
   setView,
   showToast,
   renderMoths,
+  toggleMapExpand,
   handleImgError: img => {
-    img.parentElement.innerHTML = `<span class="icon icon-lg icon-muted">${ICONS.bug}</span>`;
+    img.closest('.moth-img, .list-img, .modal-img').innerHTML =
+      `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
   },
   shareMoth,
   searchByText,
@@ -55,8 +61,8 @@ function updateEcoregionDisplay(eco) {
     return;
   }
   document.getElementById('ecoregion-name').textContent = eco.name;
-  document.getElementById('ecoregion-l2').textContent = eco.l2name;
-  document.getElementById('ecoregion-l1').textContent = eco.l1name;
+  document.getElementById('ecoregion-l2').textContent = eco.l3name || eco.l2name;
+  document.getElementById('ecoregion-l1').textContent = eco.l2name;
   el.style.display = 'flex';
 }
 
@@ -65,7 +71,8 @@ async function onNeighborClick(code, feature) {
   // Find the full eco object from neighbor list; rebuild from feature if needed
   const eco = {
     code,
-    name: feature.properties.US_L3NAME,
+    name: feature.properties.US_L4NAME,
+    l3name: feature.properties.US_L3NAME,
     l2name: feature.properties.NA_L2NAME,
     l1name: feature.properties.NA_L1NAME,
     bbox: getBboxFromFeature(feature),
@@ -118,7 +125,7 @@ async function fetchAll(lat, lng, locationName) {
   state.currentLat = lat;
   state.currentLng = lng;
   state.currentName = locationName;
-  saveLocation(lat, lng, locationName, null);
+  saveLocation(lat, lng, locationName);
 
   setStatus(`Locating ecoregion and loading forecast for ${locationName}…`);
   showSkeletons();
@@ -262,6 +269,7 @@ document.getElementById('header-date').textContent = todayStr();
 document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchByText(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+document.getElementById('icon-mapexpand').innerHTML = ICONS.expand;
 document.getElementById('icon-search').innerHTML = ICONS.search;
 document.getElementById('icon-mylocation').innerHTML = ICONS.pin;
 document.getElementById('icon-maphint').innerHTML = ICONS.pin;

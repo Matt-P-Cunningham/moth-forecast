@@ -29,6 +29,11 @@
 </header>
 
 <main>
+  <nav class="tab-nav" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-forecast">Forecast</button>
+    <button class="tab-btn tab-coming-soon" role="tab" aria-selected="false" aria-disabled="true" title="Coming soon">Identify <span class="coming-soon-pill">Soon</span></button>
+  </nav>
+
   <div class="search-card">
     <div class="search-row">
       <input type="text" id="loc-input" placeholder="Enter city, region/country, or postal code…" autocomplete="off" />
@@ -40,6 +45,7 @@
       <div class="map-wrap">
         <div class="map-hint"><span class="icon icon-muted" aria-hidden="true" id="icon-maphint"></span> Drop a pin — ecoregion boundary loads automatically</div>
         <div id="map"></div>
+        <button class="map-expand-btn" id="map-expand-btn" onclick="window.__mothApp.toggleMapExpand()" title="Expand map"><span class="icon" id="icon-mapexpand"></span></button>
       </div>
 
       <div class="ecoregion-info" id="ecoregion-info" style="display:none">
@@ -51,7 +57,7 @@
             <span id="ecoregion-l1"></span>
           </div>
         </div>
-        <div class="ecoregion-hint">Click a neighboring region on the map to switch</div>
+        <div class="ecoregion-hint">Hover the map edge to reveal neighbors · click to switch</div>
       </div>
       <div class="ecoregion-note" id="ecoregion-note" style="display:none"></div>
     </div>
@@ -81,7 +87,7 @@
       Hourly forecast from <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
       Location from <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener noreferrer">Nominatim</a> ·
       Habitat from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass/OSM</a> ·
-      Ecoregions from <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level III</a>. Scores are heuristic estimates.
+      Ecoregions from <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a>. Scores are heuristic estimates.
     </div>
     <div class="likelihood-banner" id="likelihood-banner">
       <div class="likelihood-left">
@@ -132,7 +138,7 @@
   Observations: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a> ·
   Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
   Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> via Overpass API ·
-  Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level III</a> ·
+  Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a> ·
   Map tiles: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> ·
   Inspired by <a href="https://connect-apps.ceh.ac.uk/whats_flying_tonight/" target="_blank" rel="noopener noreferrer">CEH What's Flying Tonight</a>
 </footer>

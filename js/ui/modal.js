@@ -5,10 +5,16 @@ import { calcMothScore } from '../scoring.js';
 import { MONTHS_SHORT } from '../config.js';
 import { lookupAffinity } from '../data/habitat-affinities.js';
 import { showToast } from './toast.js';
+import { fetchGBIFPhoto } from '../species/gbif.js';
 
-export function openModal(id) {
+export async function openModal(id) {
   const m = state.allMoths.find(x => String(x.id) === String(id));
   if (!m) return;
+
+  // Lazy-fetch GBIF photo once and cache it on the species object
+  if (!m.photo && m.gbifKey) {
+    m.photo = await fetchGBIFPhoto(m.gbifKey);
+  }
   const h = state.forecastHours[state.selectedIndex];
   const currentMonth = h ? h.mo : (new Date().getMonth() + 1);
   const { active, peak } = estimateSeasonMonths(currentMonth);
@@ -18,7 +24,7 @@ export function openModal(id) {
 
   const img = m.photo && m.photo.url
     ? `<div class="modal-img"><img src="${attr(m.photo.url)}" alt="${attr(m.name)}" onerror="window.__mothApp.handleImgError(this)"></div>`
-    : `<div class="modal-img"><span class="icon icon-xl">${ICONS.bug}</span></div>`;
+    : `<div class="modal-img"><span class="moth-silhouette" style="width:80px;height:80px;opacity:0.2">${ICONS.mothSilhouette}</span></div>`;
 
   const credit = photoCreditText(m)
     ? `<div class="modal-photo-credit">${photoCreditHTML(m)}</div>`

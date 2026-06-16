@@ -66,9 +66,6 @@
 .ecoregion-hint{font-size:11px;color:var(--muted);flex-shrink:0;max-width:160px;line-height:1.4;text-align:right}
 .ecoregion-note{font-size:12px;color:var(--muted);margin-top:8px;padding:8px 12px;background:var(--amber-light);border-radius:var(--radius-sm);border:1px solid var(--border)}
 
-/* Ecoregion Leaflet tooltip */
-.eco-tooltip{background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,0.12)}
-.eco-tooltip-current{background:var(--accent-light);border-color:var(--accent);color:var(--accent-text)}
 
 /* Habitat card (new) */
 .habitat-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
@@ -101,6 +98,8 @@
 .moth-card:hover{box-shadow:0 4px 20px rgba(0,0,0,0.1);transform:translateY(-2px)}
 .moth-img{width:100%;aspect-ratio:4/3;background:var(--gray-light);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden;position:relative}
 .moth-img img{width:100%;height:100%;object-fit:cover;display:block}
+.moth-silhouette{display:flex;align-items:center;justify-content:center;width:52px;height:52px;opacity:0.25;color:var(--text)}
+.moth-silhouette svg{width:100%;height:100%}
 .moth-likelihood{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.65);color:#fff;font-size:11px;font-weight:700;padding:3px 7px;border-radius:99px;backdrop-filter:blur(4px)}
 .photo-credit{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,0.62);color:#fff;font-size:9px;line-height:1.25;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(4px)}
 .moth-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}

@@ -49,8 +49,9 @@ export function setView(v) {
 }
 
 function imageHTML(moth, sizeClass) {
-  const iconSize = sizeClass === 'list' ? 'icon-lg' : 'icon-xl';
-  if (!moth.photo || !moth.photo.url) return `<span class="icon ${iconSize}">${ICONS.bug}</span>`;
+  if (!moth.photo || !moth.photo.url) {
+    return `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
+  }
   return `<img src="${attr(moth.photo.url)}" alt="${attr(moth.name)}" loading="lazy" onerror="window.__mothApp.handleImgError(this)">`;
 }
 
