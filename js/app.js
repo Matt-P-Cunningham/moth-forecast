@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { ICONS, moonPhaseSVG } from './icons.js';
 import { getMoonPhase } from './moon.js';
-import { fetchForecast, findNowIndex, findPeakIndex } from './forecast.js';
+import { fetchForecast, fetchMoonData, findNowIndex, findPeakIndex } from './forecast.js';
 import { fetchAllSpecies } from './species/index.js';
 import { fetchHabitat } from './habitat/index.js';
 import { fetchEcoregionAtPoint, fetchNeighboringEcoregions } from './ecoregion.js';
@@ -505,14 +505,12 @@ async function fetchAll(lat, lng, locationName) {
   updateEcoSelect(null, []);
   document.getElementById('cache-age-note').style.display = 'none';
 
-  const [forecastData, ecoData] = await Promise.all([
+  const [hours, ecoData] = await Promise.all([
     fetchForecast(lat, lng),
     fetchEcoregionAtPoint(lat, lng),
   ]);
 
   state.ecoregion = ecoData;
-  const hours = forecastData?.hours || null;
-  state.forecastDaily = forecastData?.daily || [];
 
   if (_sheetMapInited && ecoData) {
     placeMarker(lat, lng, false);
@@ -521,16 +519,18 @@ async function fetchAll(lat, lng, locationName) {
 
   const queryOpts = ecoData ? { bbox: ecoData.bbox } : { radiusKm: FALLBACK_RADIUS_KM };
 
-  const [mothData, habitatData, neighbors] = await Promise.all([
+  const [mothData, habitatData, neighbors, moonDaily] = await Promise.all([
     fetchAllSpeciesWithCache(lat, lng, queryOpts),
     fetchHabitat(lat, lng, ecoData ? 50 : FALLBACK_RADIUS_KM),
     ecoData ? fetchNeighboringEcoregions(ecoData.bbox, ecoData.code) : Promise.resolve([]),
+    fetchMoonData(lat, lng),
   ]);
 
   state.habitat = habitatData;
+  state.forecastDaily = moonDaily || [];
   updateEcoSelect(ecoData, neighbors);
 
-  if (hours?.length) {
+  if (hours && hours.length) {
     state.forecastHours = hours;
     state.nowIndex = findNowIndex(hours);
     state.peakIndex = findPeakIndex(hours, state.nowIndex);

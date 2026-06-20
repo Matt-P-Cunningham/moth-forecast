@@ -2,21 +2,32 @@ import { OPEN_METEO_API, FORECAST_DAYS } from './config.js';
 import { getMoonPhase } from './moon.js';
 import { calcNightScore } from './scoring.js';
 
+// Hourly forecast — returns array of hour objects (original contract unchanged)
 export async function fetchForecast(lat, lng) {
   try {
     const url = `${OPEN_METEO_API}?latitude=${lat}&longitude=${lng}` +
       `&hourly=temperature_2m,wind_speed_10m,cloud_cover,precipitation,is_day` +
-      `&daily=moonrise,moonset,sunrise,sunset` +
       `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch` +
       `&timezone=auto&forecast_days=${FORECAST_DAYS}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
-    return {
-      hours: buildForecast(data.hourly),
-      daily: buildDaily(data.daily),
-    };
+    return buildForecast(data.hourly);
   } catch(e) { return null; }
+}
+
+// Separate non-blocking fetch for daily moon data (moonrise/moonset)
+// Returns array of daily objects or [] — never throws
+export async function fetchMoonData(lat, lng) {
+  try {
+    const url = `${OPEN_METEO_API}?latitude=${lat}&longitude=${lng}` +
+      `&daily=moonrise,moonset,sunrise,sunset` +
+      `&timezone=auto&forecast_days=7`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return buildDaily(data.daily);
+  } catch(e) { return []; }
 }
 
 function buildForecast(hourly) {
@@ -46,7 +57,7 @@ function buildDaily(daily) {
   if (!daily || !daily.time) return [];
   return daily.time.map((date, i) => {
     const [y, mo, d] = date.split('-').map(Number);
-    const moon = getMoonPhase(new Date(y, mo - 1, d, 20)); // evening phase
+    const moon = getMoonPhase(new Date(y, mo - 1, d, 20));
     return {
       date, y, mo, d,
       moonrise: daily.moonrise?.[i] || null,
@@ -62,8 +73,7 @@ export function findNowIndex(hours) {
   const now = new Date();
   let best = 0, bestDiff = Infinity;
   for (let i = 0; i < hours.length; i++) {
-    const h = hours[i];
-    const diff = Math.abs(new Date(h.y, h.mo - 1, h.d, h.hour) - now);
+    const diff = Math.abs(new Date(hours[i].y, hours[i].mo - 1, hours[i].d, hours[i].hour) - now);
     if (diff < bestDiff) { bestDiff = diff; best = i; }
   }
   return best;
