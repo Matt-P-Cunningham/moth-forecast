@@ -24,7 +24,12 @@ export async function openModal(id) {
   const scoreBorderColor = fs >= 65 ? 'var(--accent-dim)' : fs >= 40 ? 'var(--amber)' : 'var(--border2)';
 
   const img = m.photo && m.photo.url
-    ? `<div class="modal-img"><img src="${attr(m.photo.url)}" alt="${attr(m.name)}" onerror="window.__mothApp.handleImgError(this)"></div>`
+    ? `<div class="modal-img modal-img-tappable"
+           data-src="${attr(m.photo.url)}"
+           data-alt="${attr(m.name)}"
+           onclick="window.__mothApp.openLightbox(this.dataset.src,this.dataset.alt)">
+         <img src="${attr(m.photo.url)}" alt="${attr(m.name)}" onerror="window.__mothApp.handleImgError(this)">
+       </div>`
     : `<div class="modal-img"><span class="moth-silhouette" style="width:80px;height:80px;opacity:0.15">${ICONS.mothSilhouette}</span></div>`;
 
   const credit = photoCreditText(m)

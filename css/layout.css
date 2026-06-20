@@ -52,10 +52,17 @@ main{
 /* ─── Tabs ───────────────────────────────────────────────────── */
 .tab-pane{display:none}
 .tab-pane.active{display:block}
+/* Sibling tab panes (identify / mylist / settings) need the same top offset as <main> */
+.tab-pane:not(main){
+  margin-top:calc(var(--bar-h) + var(--sat));
+  padding-bottom:calc(var(--sab) + 20px);
+  padding-left:var(--sal);
+  padding-right:var(--sar);
+}
 
 /* Stub tabs */
 .stub-state{
-  min-height:calc(100vh - var(--bar-h) - var(--sat));
+  min-height:calc(100vh - var(--bar-h) - var(--sat) - var(--sab));
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:2rem 1.5rem;text-align:center;gap:16px;
 }
@@ -169,19 +176,19 @@ main{
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .location-sheet{
   position:fixed;
-  bottom:0;left:0;right:0;
+  bottom:var(--keyboard-h,0px);
+  left:0;right:0;
   background:var(--surface);
   border-radius:var(--radius-lg) var(--radius-lg) 0 0;
-  /* Bottom padding includes sab so content clears the gesture bar */
-  padding:0 20px calc(28px + var(--sab));
+  /* Side padding adds sal/sar for notched/rounded-corner screens */
+  padding:0 calc(20px + var(--sar)) calc(28px + var(--sab)) calc(20px + var(--sal));
   z-index:201;
   box-shadow:0 -8px 40px rgba(0,0,0,0.6);
   animation:slideUp .25s ease;
-  /* Lift above keyboard when keyboard is open */
-  bottom:var(--keyboard-h,0px);
-}
-.keyboard-open .location-sheet{
-  bottom:var(--keyboard-h,0px);
+  transition:bottom .15s ease;
+  /* Constrain sheet height so it doesn't cover the entire screen */
+  max-height:calc(92vh - var(--keyboard-h,0px));
+  overflow-y:auto;
 }
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .sheet-handle{

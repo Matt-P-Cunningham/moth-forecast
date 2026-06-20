@@ -36,6 +36,7 @@ window.__mothApp = {
   toggleDrawer,
   switchTab,
   toggleTheme,
+  openLightbox,
   _switchNeighbor: idx => {
     const n = _neighbors[idx];
     if (n) onNeighborClick(n.code, n.feature);
@@ -119,13 +120,32 @@ function toggleDrawer() {
   document.getElementById('drawer-backdrop').classList.toggle('open', _drawerOpen);
 }
 
+// ─── Lightbox ────────────────────────────────────────────────────
+function openLightbox(src, alt) {
+  if (!src) return;
+  const lb = document.createElement('div');
+  lb.className = 'lightbox';
+  lb.innerHTML = `<img src="${src}" alt="${alt || ''}" class="lightbox-img">
+    <button class="lightbox-close" aria-label="Close photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  // Tap anywhere — including the image — dismisses the lightbox
+  lb.addEventListener('click', () => lb.remove());
+  document.body.appendChild(lb);
+}
+
 // ─── Location sheet ───────────────────────────────────────────────
 function toggleLocationSheet(force) {
   _sheetOpen = force !== undefined ? !!force : !_sheetOpen;
   document.getElementById('location-sheet').style.display = _sheetOpen ? 'block' : 'none';
   document.getElementById('sheet-backdrop').style.display = _sheetOpen ? 'block' : 'none';
   if (_sheetOpen) {
-    setTimeout(() => document.getElementById('loc-input').focus(), 50);
+    // Focus and move cursor to start so the full location name is visible from the left
+    setTimeout(() => {
+      const inp = document.getElementById('loc-input');
+      inp.focus();
+      inp.setSelectionRange(0, 0);
+    }, 60);
     // Init map on first open
     if (!_sheetMapInited) {
       _sheetMapInited = true;
