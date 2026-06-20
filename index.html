@@ -31,6 +31,21 @@
   </div>
 </header>
 
+<!-- Moon panel backdrop + panel -->
+<div class="moon-panel-backdrop" id="moon-panel-backdrop" onclick="window.__mothApp.toggleMoonPanel()" style="display:none"></div>
+<div class="moon-panel" id="moon-panel">
+  <div class="sheet-handle"></div>
+  <div class="moon-panel-header">
+    <span class="moon-panel-title">Moon</span>
+    <button class="drawer-close" onclick="window.__mothApp.toggleMoonPanel()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="moon-panel-body" id="moon-panel-content">
+    <div class="moon-no-data">Tap the moon icon after loading a forecast to see moonrise &amp; moonset times.</div>
+  </div>
+</div>
+
 <!-- Location sheet backdrop -->
 <div class="sheet-backdrop" id="sheet-backdrop" onclick="window.__mothApp.toggleLocationSheet()" style="display:none"></div>
 
@@ -57,6 +72,7 @@
     <button class="drawer-item" id="di-mylist" onclick="window.__mothApp.switchTab('mylist')">
       <span class="drawer-item-icon" id="di-icon-mylist"></span>
       My List
+      <span class="drawer-badge" id="mylist-badge" style="display:none"></span>
     </button>
     <button class="drawer-item" id="di-settings" onclick="window.__mothApp.switchTab('settings')">
       <span class="drawer-item-icon" id="di-icon-settings"></span>
@@ -172,34 +188,78 @@
       </div>
     </div>
     <div id="results"></div>
+    <div class="cache-age-note" id="cache-age-note" style="display:none"></div>
   </div>
 
 </main>
 
-<!-- Identify tab (stub) -->
+<!-- Identify tab -->
 <div id="tab-identify" class="tab-pane">
-  <div class="stub-state">
-    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
-    <h2>Identify</h2>
-    <p>Coming soon — point your camera at a moth and we'll help narrow down the species using field marks.</p>
+  <div class="identify-header">
+    <h2 class="identify-heading">Identify</h2>
+    <p class="identify-subhead">Answer what you can see — skip anything you can't.</p>
   </div>
+  <div id="identify-content" class="identify-content"></div>
 </div>
 
-<!-- My List tab (stub) -->
+<!-- My List tab -->
 <div id="tab-mylist" class="tab-pane">
-  <div class="stub-state">
-    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
-    <h2>My List</h2>
-    <p>Save moths you've spotted or want to look for. Coming soon.</p>
+  <div class="mylist-header">
+    <h2 class="mylist-heading">My List</h2>
+    <p class="mylist-subhead">Tonight's sightings · Tap + on any species card to log</p>
   </div>
+  <div id="mylist-content"></div>
 </div>
 
-<!-- Settings tab (stub) -->
+<!-- Settings tab -->
 <div id="tab-settings" class="tab-pane">
-  <div class="stub-state">
-    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-    <h2>Settings</h2>
-    <p>App preferences coming soon.</p>
+  <div class="settings-page">
+    <div class="settings-section">
+      <div class="settings-section-title">About</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span class="settings-row-label">Moth Lite</span>
+          <span class="settings-row-value">v1.0</span>
+        </div>
+        <div class="settings-row-body">A field forecasting tool for Wyoming &amp; Colorado moths. Data sources: iNaturalist, GBIF, Open-Meteo, EPA Ecoregions, OpenStreetMap.</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">iNaturalist</div>
+      <div class="settings-card settings-card-body">
+        Moth Lite is a forecasting and field reference tool. Please document your moth sightings on <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> to contribute to citizen science and improve species data for everyone.
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Legal</div>
+      <div class="settings-card">
+        <details class="legal-details">
+          <summary>Terms of Use</summary>
+          <div class="legal-body">Moth Lite is provided for informational and field planning purposes only. Species likelihood scores are heuristic estimates and are not verified biological forecasts. We are not liable for any misidentification of species. Data is sourced from third-party providers (iNaturalist, GBIF, Open-Meteo, EPA, OpenStreetMap) and is subject to their respective terms. Use of this app constitutes acceptance of these terms.</div>
+        </details>
+        <details class="legal-details">
+          <summary>Privacy Policy</summary>
+          <div class="legal-body">Moth Lite does not collect, store, or transmit any personal data to our servers. Your GPS location is used only on-device to fetch forecasts and species data from third-party APIs (iNaturalist, GBIF, Open-Meteo, Nominatim). Sightings you log are stored locally on your device only and are never uploaded. No analytics, no account required.</div>
+        </details>
+        <details class="legal-details">
+          <summary>Location Permission</summary>
+          <div class="legal-body">Moth Lite requests location access to automatically detect your GPS position for weather forecasts, ecoregion detection, and nearby species queries. Location is sent directly to iNaturalist, GBIF, Open-Meteo, and Nominatim APIs. It is never stored on any Moth Lite server.</div>
+        </details>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Data Sources</div>
+      <div class="settings-card">
+        <div class="settings-row"><span class="settings-row-label">Species obs</span><a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer" class="settings-row-link">iNaturalist</a></div>
+        <div class="settings-row"><span class="settings-row-label">Additional obs</span><a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer" class="settings-row-link">GBIF</a></div>
+        <div class="settings-row"><span class="settings-row-label">Weather</span><a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="settings-row-link">Open-Meteo</a></div>
+        <div class="settings-row"><span class="settings-row-label">Ecoregions</span><a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer" class="settings-row-link">EPA Level IV</a></div>
+        <div class="settings-row"><span class="settings-row-label">Maps &amp; habitat</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="settings-row-link">© OpenStreetMap</a></div>
+      </div>
+    </div>
   </div>
 </div>
 

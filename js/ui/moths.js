@@ -1,8 +1,9 @@
 import { state } from '../state.js';
 import { ICONS } from '../icons.js';
-import { escapeHTML, attr, photoCreditText, seasonBars, estimateSeasonMonths } from '../utils.js';
+import { escapeHTML, attr, photoCreditText, estimateSeasonMonths } from '../utils.js';
 import { calcMothScore } from '../scoring.js';
 import { lookupAffinity } from '../data/habitat-affinities.js';
+import { hasSighting } from '../sightings.js';
 
 export function renderMoths() {
   const sort = document.getElementById('sort-sel').value;
@@ -16,8 +17,8 @@ export function renderMoths() {
 
   if (habitatFilter) {
     moths = moths.filter(m => {
-      const affinity = lookupAffinity(m);
-      return affinity.length === 0 || affinity.includes(habitatFilter);
+      const a = lookupAffinity(m);
+      return a.length === 0 || a.includes(habitatFilter);
     });
   }
 
@@ -31,40 +32,41 @@ export function renderMoths() {
   else moths.sort((a, b) => a.name.localeCompare(b.name));
 
   document.getElementById('result-count').textContent = `${moths.length} species`;
-
   const r = document.getElementById('results');
   if (!moths.length) {
     r.innerHTML = `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.search}</span>No moths match this filter.</div>`;
     return;
   }
 
-  r.innerHTML = '<div class="species-list">' +
-    moths.map(m => renderCard(m, currentMonth)).join('') +
-    '</div>';
+  r.innerHTML = '<div class="species-list">' + moths.map(m => renderCard(m, currentMonth)).join('') + '</div>';
 }
 
 function renderCard(m, currentMonth) {
   const affinities = lookupAffinity(m);
   const scoreClass = m.flightScore >= 65 ? 'score-good' : m.flightScore >= 40 ? 'score-fair' : 'score-poor';
-  const credit = photoCreditText(m)
-    ? `<div class="species-credit">${escapeHTML(photoCreditText(m))}</div>`
-    : '';
-
-  const photoHTML = m.photo && m.photo.url
+  const credit = photoCreditText(m) ? `<div class="species-credit">${escapeHTML(photoCreditText(m))}</div>` : '';
+  const photoHTML = m.photo?.url
     ? `<img src="${attr(m.photo.url)}" alt="${attr(m.name)}" loading="lazy" onerror="window.__mothApp.handleImgError(this)">${credit}`
     : `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
 
-  const habitatTags = affinities.slice(0, 2).map(a =>
-    `<span class="habitat-tag">${escapeHTML(a)}</span>`
-  ).join('');
-
+  const habitatTags = affinities.slice(0, 2).map(a => `<span class="habitat-tag">${escapeHTML(a)}</span>`).join('');
   const freqTag = m.count > 100
     ? '<span class="freq-tag freq-common">Common</span>'
-    : m.count > 20
-    ? '<span class="freq-tag freq-occasional">Occasional</span>'
+    : m.count > 20 ? '<span class="freq-tag freq-occasional">Occasional</span>'
     : '<span class="freq-tag freq-rare">Rare</span>';
+  const gbifBadge = m.source === 'gbif' ? '<span class="badge-gbif">GBIF</span>' : '';
 
-  const gbifBadge = (m.source === 'gbif') ? '<span class="badge-gbif">GBIF</span>' : '';
+  const logged = hasSighting(m.id);
+  const logBtn = `<button class="log-btn ${logged ? 'logged' : ''}"
+    onclick="event.stopPropagation();${logged ? '' : `window.__mothApp.logSighting('${m.id}')`}"
+    title="${logged ? 'Logged tonight' : 'Log sighting'}">
+    ${logged
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`}
+  </button>`;
+
+  const inatId = m.inatId || (m.source !== 'gbif' ? m.id : null);
+  const inatBtn = inatId ? `<button class="card-inat-btn" onclick="event.stopPropagation();window.__mothApp.openInatObs('${inatId}','${attr(m.sci)}')" title="Log on iNaturalist">iNat ↗</button>` : '';
 
   return `<div class="species-card" onclick="window.__mothApp.openModal('${m.id}')">
     <div class="species-photo">${photoHTML}</div>
@@ -72,11 +74,12 @@ function renderCard(m, currentMonth) {
       <div class="species-common">${escapeHTML(m.name)}</div>
       <div class="species-sci">${escapeHTML(m.sci)}</div>
       <div class="species-tags">${habitatTags}${freqTag}${gbifBadge}</div>
-      <div class="species-obs"><span class="icon icon-sm">${ICONS.eye}</span>${m.count.toLocaleString()} records</div>
+      <div class="species-card-actions">${inatBtn}</div>
     </div>
     <div class="species-score-col">
       <div class="species-score ${scoreClass}">${m.flightScore}</div>
       <div class="species-score-pct">%</div>
+      ${logBtn}
     </div>
   </div>`;
 }

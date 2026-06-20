@@ -98,10 +98,12 @@ export async function openModal(id) {
           This app uses live third-party APIs and a simplified heuristic model. It is a field-planning aid, not a verified biological forecast.
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.__mothApp.shareMoth('${m.id}');window.__mothApp.closeModal()">
-            <span class="icon">${ICONS.link}</span>Share
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.__mothApp.logSighting('${m.id}')">
+            <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>Log sighting
           </button>
-          <button class="btn btn-sm" onclick="window.__mothApp.closeModal()">Close</button>
+          ${inatId ? `<button class="btn btn-sm" onclick="window.__mothApp.openInatObs('${inatId}','${attr(m.sci)}')">iNat ↗</button>` : ''}
+          <button class="btn btn-sm" onclick="window.__mothApp.shareMoth('${m.id}')">Share</button>
+          <button class="btn btn-sm" onclick="window.__mothApp.closeModal()">✕</button>
         </div>
       </div>
     </div>

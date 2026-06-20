@@ -6,11 +6,16 @@ export async function fetchForecast(lat, lng) {
   try {
     const url = `${OPEN_METEO_API}?latitude=${lat}&longitude=${lng}` +
       `&hourly=temperature_2m,wind_speed_10m,cloud_cover,precipitation,is_day` +
-      `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=${FORECAST_DAYS}`;
+      `&daily=moonrise,moonset,sunrise,sunset` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch` +
+      `&timezone=auto&forecast_days=${FORECAST_DAYS}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
-    return buildForecast(data.hourly);
+    return {
+      hours: buildForecast(data.hourly),
+      daily: buildDaily(data.daily),
+    };
   } catch(e) { return null; }
 }
 
@@ -29,7 +34,7 @@ function buildForecast(hourly) {
       wind: Math.round(hourly.wind_speed_10m[i]),
       clouds: Math.round(hourly.cloud_cover[i]),
       precip: Number(hourly.precipitation[i] || 0),
-      isDay: hourly.is_day[i] === 1
+      isDay: hourly.is_day[i] === 1,
     };
     const nr = calcNightScore(w, moonCache[datePart]);
     out.push({ iso, y, mo, d, hour, ...w, moon: moonCache[datePart], ...nr });
@@ -37,13 +42,28 @@ function buildForecast(hourly) {
   return out;
 }
 
+function buildDaily(daily) {
+  if (!daily || !daily.time) return [];
+  return daily.time.map((date, i) => {
+    const [y, mo, d] = date.split('-').map(Number);
+    const moon = getMoonPhase(new Date(y, mo - 1, d, 20)); // evening phase
+    return {
+      date, y, mo, d,
+      moonrise: daily.moonrise?.[i] || null,
+      moonset:  daily.moonset?.[i]  || null,
+      sunrise:  daily.sunrise?.[i]  || null,
+      sunset:   daily.sunset?.[i]   || null,
+      moon,
+    };
+  });
+}
+
 export function findNowIndex(hours) {
   const now = new Date();
   let best = 0, bestDiff = Infinity;
   for (let i = 0; i < hours.length; i++) {
     const h = hours[i];
-    const dt = new Date(h.y, h.mo - 1, h.d, h.hour);
-    const diff = Math.abs(dt - now);
+    const diff = Math.abs(new Date(h.y, h.mo - 1, h.d, h.hour) - now);
     if (diff < bestDiff) { bestDiff = diff; best = i; }
   }
   return best;

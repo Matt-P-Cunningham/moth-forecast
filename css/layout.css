@@ -70,6 +70,53 @@ main{
 .stub-state h2{font-size:24px;font-weight:700;color:var(--text)}
 .stub-state p{font-size:15px;color:var(--muted);max-width:280px;line-height:1.65}
 
+/* ─── Moon panel ─────────────────────────────────────────────── */
+.moon-panel-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;animation:fadeIn .2s ease;
+}
+.moon-panel{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--surface);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  z-index:201;
+  max-height:80vh;
+  display:flex;flex-direction:column;
+  transform:translateY(100%);
+  transition:transform .28s ease;
+  box-shadow:0 -8px 40px rgba(0,0,0,.5);
+  padding-bottom:var(--sab);
+}
+.moon-panel.open{transform:translateY(0)}
+.moon-panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px 12px;flex-shrink:0;
+}
+.moon-panel-title{font-size:18px;font-weight:700}
+.moon-panel-body{overflow-y:auto;padding:0 20px 16px;flex:1}
+.moon-panel-hero{text-align:center;padding:8px 0 16px}
+.moon-panel-icon{display:inline-flex;width:52px;height:52px;color:var(--moon);margin-bottom:8px}
+.moon-panel-icon svg{width:100%;height:100%}
+.moon-panel-phase-name{font-size:22px;font-weight:800;color:var(--text)}
+.moon-panel-illum{font-size:13px;color:var(--muted);margin-top:2px}
+.moon-panel-times{font-size:13px;color:var(--text2);margin-top:6px}
+.moon-panel-sep{height:1px;background:var(--border);margin:0 -20px 12px}
+.moon-7day{display:flex;flex-direction:column;gap:2px}
+.moon-day-row{
+  display:grid;grid-template-columns:32px 1fr auto;
+  align-items:center;gap:12px;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.moon-day-row:last-child{border-bottom:none}
+.moon-today .moon-day-name{color:var(--accent-text);font-weight:700}
+.moon-day-svg{display:flex;width:28px;height:28px;color:var(--moon)}
+.moon-day-svg svg{width:100%;height:100%}
+.moon-day-name{font-size:13px;font-weight:600;color:var(--text)}
+.moon-day-phase-name{font-size:11px;color:var(--muted);margin-top:1px}
+.moon-day-times{text-align:right}
+.moon-rise-set{font-size:11px;color:var(--text2);line-height:1.5}
+.moon-no-data{font-size:13px;color:var(--muted);text-align:center;padding:20px 0}
+
 /* ─── Drawer ─────────────────────────────────────────────────── */
 .drawer-backdrop{
   position:fixed;inset:0;
