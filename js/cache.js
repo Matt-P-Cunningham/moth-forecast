@@ -2,6 +2,14 @@
 const P = 'ml_c_';
 const TTL = { species: 86400000, weather: 3600000, ecoregion: 604800000 };
 
+// Returns cached data regardless of TTL (for stale-while-revalidate)
+export function getCacheStale(type, key) {
+  try {
+    const raw = localStorage.getItem(P + type + '_' + key);
+    return raw ? JSON.parse(raw).data : null;
+  } catch { return null; }
+}
+
 export function getCache(type, key) {
   try {
     const raw = localStorage.getItem(P + type + '_' + key);

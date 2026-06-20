@@ -126,17 +126,18 @@
 .conditions-section-inner{padding:0 12px}
 .conditions{
   display:grid;grid-template-columns:1fr 1fr;
-  gap:10px;
-  padding:14px 12px 0;
+  gap:14px;
+  padding:22px 14px 0;
 }
 .cond-tile{
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--radius);
-  padding:18px 16px 16px;
-  display:flex;flex-direction:column;gap:5px;
+  padding:24px 20px 22px;
+  display:flex;flex-direction:column;gap:6px;
   position:relative;
   overflow:hidden;
+  min-height:130px;
 }
 .cond-tile::before{
   content:'';
@@ -156,24 +157,26 @@
 }
 .cond-icon svg{width:100%;height:100%}
 .cond-icon.moon-color{color:var(--moon)}
-.cond-value{font-size:20px;font-weight:800;line-height:1.1;color:var(--text)}
-.cond-label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);font-weight:600}
-.cond-sub{font-size:12px;color:var(--text2)}
+.cond-value{font-size:22px;font-weight:800;line-height:1.1;color:var(--text)}
+.cond-label{font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);font-weight:600}
+.cond-sub{font-size:14px;color:var(--text2)}
+.cond-moon-times{font-size:12px;color:var(--text2);margin-top:4px;white-space:nowrap}
 
-/* Likelihood banner */
+/* Likelihood banner — pill/card shape, centered, max-width constrained */
 .likelihood-banner{
-  margin:10px 12px 0;
+  margin:14px auto 0;
+  max-width:calc(100% - 28px);
   background:linear-gradient(135deg,#0f2217,#1a4028);
   border:1px solid var(--accent-dim);
   border-radius:var(--radius);
-  padding:16px 18px;
+  padding:18px 22px;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
 }
 .likelihood-banner.fair{background:linear-gradient(135deg,#1a1606,#2e2a08);border-color:rgba(196,154,45,.4)}
 .likelihood-banner.poor{background:linear-gradient(135deg,#1a0606,#2e0c0c);border-color:rgba(184,72,72,.4)}
 .likelihood-banner.day{background:linear-gradient(135deg,#08121c,#0e1e2c);border-color:rgba(74,142,181,.25)}
-.likelihood-left h2{font-size:20px;font-weight:800;color:var(--text);margin-bottom:2px}
-.likelihood-left p{font-size:13px;color:var(--text2)}
+.likelihood-left h2{font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px}
+.likelihood-left p{font-size:15px;color:var(--text2)}
 .likelihood-score{font-size:44px;font-weight:900;line-height:1;color:var(--accent-text)}
 .likelihood-score span{font-size:16px;font-weight:400;opacity:0.6}
 .likelihood-banner.fair .likelihood-score{color:var(--amber-text)}
@@ -182,12 +185,13 @@
 
 /* Habitat mini-card */
 .habitat-strip{
-  margin:8px 12px 0;
-  padding:10px 14px;
+  margin:14px auto 0;
+  max-width:calc(100% - 28px);
+  padding:14px 18px;
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--radius-sm);
-  display:flex;align-items:center;gap:10px;
+  display:flex;align-items:center;gap:12px;
 }
 .habitat-strip-icon{width:20px;height:20px;color:var(--accent);flex-shrink:0}
 .habitat-strip-icon svg{width:100%;height:100%}
@@ -199,31 +203,47 @@
 /* Data source note */
 .data-note{
   font-size:10px;color:var(--muted);
-  padding:6px 12px 0;line-height:1.5;
+  padding:14px 14px 0;line-height:1.5;
 }
 .data-note a{color:var(--info-text);text-decoration:none}
 
 /* ─── Species list ────────────────────────────────────────────── */
 .list-header{
-  padding:12px 12px 4px;
-  display:flex;flex-direction:column;gap:8px;
+  padding:18px 14px 8px;
+  display:flex;flex-direction:column;gap:10px;
 }
 .list-header-top{
   display:flex;align-items:center;gap:10px;
 }
-.result-count{font-size:13px;color:var(--muted);flex:1;white-space:nowrap}
-.filter-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
-.filter-row::-webkit-scrollbar{display:none}
-.filter-row select,
-.list-header-top select{
-  height:34px;padding:0 10px;
+.result-count{font-size:14px;color:var(--muted);flex:1;white-space:nowrap}
+.filter-row{
+  display:flex;gap:8px;
+  flex-wrap:nowrap;
+}
+.filter-row select{
+  /* Equal share of the row width */
+  flex:1;
+  min-width:0;
+  height:36px;
+  padding:0 24px 0 14px;
   border-radius:99px;
   border:1px solid var(--border2);
   background:var(--surface);color:var(--text);
-  font-size:12px;cursor:pointer;
+  font-size:13px;cursor:pointer;
   font-family:inherit;
-  white-space:nowrap;
-  flex-shrink:0;
+  text-align:center;
+  text-align-last:center;
+}
+.list-header-top select{
+  height:36px;
+  padding:0 24px 0 14px;
+  border-radius:99px;
+  border:1px solid var(--border2);
+  background:var(--surface);color:var(--text);
+  font-size:13px;cursor:pointer;
+  font-family:inherit;
+  text-align:center;
+  text-align-last:center;
 }
 
 /* Eco select — green tint when a neighbor is selected */
@@ -247,7 +267,7 @@
   background:var(--border);
   border-top:1px solid var(--border);
   border-bottom:1px solid var(--border);
-  margin-top:8px;
+  margin-top:16px;
 }
 .species-card{
   display:grid;
@@ -259,11 +279,12 @@
 }
 .species-card:active{background:var(--surface2)}
 .species-photo{
-  width:100px;height:100px;
+  width:100px;
   background:var(--surface2);
-  flex-shrink:0;overflow:hidden;
+  overflow:hidden;
   display:flex;align-items:center;justify-content:center;
   position:relative;
+  align-self:stretch;
 }
 .species-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .moth-silhouette{
@@ -279,11 +300,11 @@
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .species-info{
-  padding:13px 10px 13px 14px;
-  display:flex;flex-direction:column;gap:4px;
+  padding:17px 13px 17px 18px;
+  display:flex;flex-direction:column;gap:5px;
   min-width:0;justify-content:center;
 }
-.species-common{font-size:15px;font-weight:700;line-height:1.25;color:var(--text)}
+.species-common{font-size:17px;font-weight:700;line-height:1.25;color:var(--text)}
 .species-sci{font-size:11px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .species-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
 .habitat-tag{
@@ -326,7 +347,7 @@
   border-radius:var(--radius-lg) var(--radius-lg) 0 0;
   width:100%;max-width:600px;
   /* Leave room for the top status bar so the sheet never goes fully behind it */
-  max-height:calc(100vh - var(--sat) - 8px - var(--keyboard-h,0px));
+  max-height:calc(100vh - var(--status-bar-height) - 8px - var(--keyboard-h,0px));
   overflow-y:auto;
   position:relative;
   animation:slideUp .25s ease;
@@ -355,7 +376,7 @@
   backdrop-filter:blur(4px);
 }
 .modal-close .icon{width:16px;height:16px}
-.modal-body{padding:20px 20px calc(20px + var(--sab))}
+.modal-body{padding:26px 24px calc(26px + var(--nav-bar-height))}
 .modal-title{font-size:22px;font-weight:800;margin-bottom:2px}
 .modal-sci{font-size:14px;color:var(--muted);font-style:italic;margin-bottom:14px}
 .modal-score-row{
@@ -396,6 +417,7 @@
 }
 .modal-actions{display:flex;gap:8px;margin-top:14px}
 .btn-sm{height:40px;padding:0 16px;font-size:14px}
+.btn-logged{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-dim)}
 
 /* Season bars */
 .season-bar-row{display:flex;gap:2px;margin-bottom:4px}
@@ -418,7 +440,7 @@
 
 /* ─── Toast ───────────────────────────────────────────────────── */
 .toast{
-  position:fixed;bottom:calc(var(--sab) + 24px);left:50%;
+  position:fixed;bottom:calc(var(--nav-bar-height) + 24px);left:50%;
   transform:translateX(-50%);
   background:#1a2e1c;color:var(--accent-text);
   border:1px solid var(--accent-dim);
@@ -451,7 +473,7 @@
   display:flex;align-items:center;justify-content:center;
   cursor:zoom-out;
   /* Inset from system UI */
-  padding:calc(var(--sat) + 48px) 12px calc(var(--sab) + 20px);
+  padding:calc(var(--status-bar-height) + 48px) 12px calc(var(--nav-bar-height) + 20px);
   animation:fadeIn .2s ease;
 }
 .lightbox-img{
@@ -470,7 +492,7 @@
 }
 .lightbox-close{
   position:absolute;
-  top:calc(var(--sat) + 10px);right:14px;
+  top:calc(var(--status-bar-height) + 10px);right:14px;
   width:38px;height:38px;
   border-radius:50%;
   background:rgba(255,255,255,0.14);
@@ -491,9 +513,10 @@
 }
 
 /* ─── Cache age note ─────────────────────────────────────────── */
+.result-count-wrap{display:flex;flex-direction:column;flex:1;min-width:0}
 .cache-age-note{
   font-size:10px;color:var(--muted);
-  padding:4px 12px;text-align:right;
+  margin-top:1px;
   animation:fadeIn .3s ease;
 }
 
@@ -527,47 +550,90 @@
 .log-btn:not(.logged):hover{border-color:var(--accent-dim);color:var(--accent-text)}
 
 /* ─── My List tab ────────────────────────────────────────────── */
-.mylist-header{padding:16px 16px 8px;border-bottom:1px solid var(--border)}
-.mylist-heading{font-size:20px;font-weight:800}
-.mylist-subhead{font-size:12px;color:var(--muted);margin-top:2px}
-.mylist-group{margin-bottom:8px}
-.mylist-date-header{
-  font-size:11px;font-weight:700;color:var(--muted);
-  text-transform:uppercase;letter-spacing:0.5px;
-  padding:10px 16px 6px;
+
+/* Fixed subheader — pinned below app top-bar, above scroll content */
+.mylist-header{
+  position:fixed;
+  top:var(--app-header-height);
+  left:0;right:0;
+  height:60px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 16px;
+  gap:10px;
+  z-index:60;
 }
+/* Push scroll content below the fixed subheader */
+#mylist-content{padding-top:60px}
+.mylist-heading{font-size:20px;font-weight:800;color:var(--text)}
+.mylist-subhead{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* Empty state */
+.mylist-empty{
+  padding:48px 24px;
+  text-align:center;
+  font-size:15px;
+  color:var(--muted);
+  line-height:1.6;
+}
+
+/* ─── Date session cards (main list view) ────────────────────── */
+.mylist-date-card{
+  width:100%;display:flex;align-items:center;
+  padding:16px;
+  background:var(--surface);
+  border:none;border-bottom:1px solid var(--border);
+  text-align:left;cursor:pointer;font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .1s;
+}
+.mylist-date-card:active{background:var(--surface2)}
+.mylist-date-card-body{flex:1;min-width:0}
+.mylist-date-label{font-size:16px;font-weight:700;color:var(--text)}
+.mylist-date-location{font-size:12px;color:var(--muted);margin-top:3px}
+.mylist-date-coords{font-size:11px;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums;opacity:0.7}
+.mylist-date-meta{
+  display:flex;align-items:center;gap:10px;
+  font-size:12px;color:var(--muted);margin-top:5px;
+}
+.mylist-date-count{
+  background:var(--accent-bg);color:var(--accent-text);
+  font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+}
+.mylist-date-chevron{font-size:22px;color:var(--muted);flex-shrink:0;line-height:1;padding-left:8px}
+
+/* ─── Detail view header elements ───────────────────────────── */
+.mylist-back-btn{
+  display:flex;align-items:center;gap:4px;
+  background:none;border:none;
+  color:var(--accent-text);font-size:15px;font-weight:600;
+  cursor:pointer;padding:0;font-family:inherit;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.mylist-detail-date{font-size:16px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ─── Species entry rows (detail view) ──────────────────────── */
 .mylist-entry{
   display:flex;align-items:center;gap:12px;
-  padding:10px 16px;
+  padding:14px 16px;
   background:var(--surface);
   border-bottom:1px solid var(--border);
 }
-.mylist-thumb{
-  width:52px;height:52px;border-radius:var(--radius-sm);
-  object-fit:cover;flex-shrink:0;background:var(--surface2);
-}
-.mylist-thumb-empty{
-  display:flex;align-items:center;justify-content:center;
-  color:var(--muted);opacity:0.4;
-}
 .mylist-info{flex:1;min-width:0}
-.mylist-name{font-size:14px;font-weight:700;color:var(--text)}
-.mylist-sci{font-size:11px;color:var(--muted);font-style:italic}
-.mylist-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.mylist-name{font-size:15px;font-weight:700;color:var(--text)}
+.mylist-sci{font-size:11px;color:var(--muted);font-style:italic;margin-top:1px}
+.mylist-meta{font-size:11px;color:var(--muted);margin-top:3px}
 .mylist-actions{display:flex;gap:6px;flex-shrink:0;align-items:center}
-.mylist-inat-btn{
-  font-size:11px;padding:4px 8px;border-radius:99px;
-  border:1px solid rgba(74,142,181,.35);background:var(--info-bg);color:var(--info-text);
-  cursor:pointer;font-family:inherit;
-}
 .mylist-del{
-  width:32px;height:32px;border-radius:50%;
+  width:34px;height:34px;border-radius:50%;
   border:1px solid var(--border2);background:none;
   color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
 }
-.mylist-del svg{width:14px;height:14px}
-.mylist-del:hover{border-color:var(--danger);color:var(--danger-text)}
+.mylist-del svg{width:15px;height:15px}
+.mylist-del:active{border-color:var(--danger);color:var(--danger-text)}
 
 /* ─── Identify tab ───────────────────────────────────────────── */
 .identify-header{padding:16px 16px 8px;border-bottom:1px solid var(--border)}
@@ -642,6 +708,14 @@
   font-size:10px;color:var(--muted);line-height:1.5;
   padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-top:8px;
 }
+
+/* ─── Coming Soon screen ─────────────────────────────────────── */
+.coming-soon-screen{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:60vh;padding:2rem 1.5rem;text-align:center;gap:12px;
+}
+.coming-soon-heading{font-size:26px;font-weight:800;color:var(--text)}
+.coming-soon-sub{font-size:16px;color:var(--muted);font-weight:500}
 
 /* ─── Settings tab ───────────────────────────────────────────── */
 .settings-page{padding:0 0 32px}

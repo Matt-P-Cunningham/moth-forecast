@@ -6,7 +6,8 @@
     "SystemBars": {
       "overlaysWebView": true,
       "style": "DARK",
-      "backgroundColor": "#131915"
+      "backgroundColor": "#131915",
+      "insetsHandling": "disable"
     }
   }
 }

@@ -1,22 +1,34 @@
 const KEY = 'ml_sightings';
 
+function todayDate() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
 export function getSightings() {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
   catch { return []; }
 }
 
 function save(list) {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch(e) {}
+  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {}
 }
 
-export function addSighting({ id, inatId, name, sci, photoUrl, score, lat, lng, ecoregion }) {
+// stores { id, speciesId, commonName, sciName, timestamp, date, time, location, lat, lng, ecoregion, score }
+export function addSighting({ speciesId, commonName, sciName, location, lat, lng, ecoregion, score }) {
+  const now = new Date();
   const entry = {
-    uid: `${id}_${Date.now()}`,
-    id, inatId, name, sci, photoUrl: photoUrl || null, score,
-    lat: lat ? +lat.toFixed(5) : null,
-    lng: lng ? +lng.toFixed(5) : null,
+    id: `${sciName.replace(/\s+/g, '_')}_${now.getTime()}`,
+    speciesId,
+    commonName,
+    sciName,
+    timestamp: now.getTime(),
+    date: now.toISOString().slice(0, 10),
+    time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    location: location || '',
+    lat: lat != null ? +lat : null,
+    lng: lng != null ? +lng : null,
     ecoregion: ecoregion || '',
-    ts: Date.now(),
+    score: score || 0,
   };
   const list = getSightings();
   list.unshift(entry);
@@ -24,28 +36,35 @@ export function addSighting({ id, inatId, name, sci, photoUrl, score, lat, lng, 
   return entry;
 }
 
-export function deleteSighting(uid) {
-  save(getSightings().filter(s => s.uid !== uid));
-}
-
-export function hasSighting(id) {
-  const today = new Date().toDateString();
-  return getSightings().some(s => s.id === id && new Date(s.ts).toDateString() === today);
-}
-
-export function getTonightCount() {
-  const today = new Date().toDateString();
-  return getSightings().filter(s => new Date(s.ts).toDateString() === today).length;
-}
-
-export function getSightingsGroupedByDate() {
+// Returns all sightings grouped by YYYY-MM-DD key
+export function getSightingsByDate() {
   const all = getSightings();
   const groups = {};
   for (const s of all) {
-    const d = new Date(s.ts);
-    const key = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const key = s.date || new Date(s.timestamp || 0).toISOString().slice(0, 10);
     if (!groups[key]) groups[key] = [];
     groups[key].push(s);
   }
   return groups;
+}
+
+// Delete one specific entry by its entry id
+export function removeSighting(entryId) {
+  save(getSightings().filter(s => s.id !== entryId));
+}
+
+// Remove today's sighting for a species (used by card toggle)
+export function removeSightingBySpec(sciName, date) {
+  const d = date || todayDate();
+  save(getSightings().filter(s => !(s.sciName === sciName && s.date === d)));
+}
+
+// True if this species is already logged on the given date (defaults to today)
+export function hasSighting(sciName, date) {
+  const d = date || todayDate();
+  return getSightings().some(s => s.sciName === sciName && s.date === d);
+}
+
+export function getTonightCount() {
+  return getSightings().filter(s => s.date === todayDate()).length;
 }

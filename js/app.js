@@ -12,9 +12,8 @@ import { renderMoths } from './ui/moths.js';
 import { openModal, closeModal } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
 import { initMap, placeMarker, setEcoregionLayers, invalidateMapSize } from './map.js';
-import { getCache, setCache, getCacheAge } from './cache.js';
-import { addSighting, deleteSighting, getSightingsGroupedByDate, hasSighting, getTonightCount } from './sightings.js';
-import { CHARACTERS, runKey } from './identify.js';
+import { getCache, setCache, getCacheAge, getCacheStale } from './cache.js';
+import { addSighting, removeSighting, removeSightingBySpec, getSightingsByDate, hasSighting, getTonightCount } from './sightings.js';
 
 const FALLBACK_RADIUS_KM = 100;
 let _sheetOpen = false;
@@ -22,8 +21,7 @@ let _drawerOpen = false;
 let _moonPanelOpen = false;
 let _sheetMapInited = false;
 let _neighbors = [];
-let _identifyAnswers = {};
-let _identifyStep = 0;
+let _myListDateKey = null; // null = date list view; YYYY-MM-DD string = detail view
 
 window.__mothApp = {
   selectHour,
@@ -45,10 +43,9 @@ window.__mothApp = {
   toggleTheme,
   openLightbox,
   logSighting,
-  deleteSighting: uid => { deleteSighting(uid); renderMyList(); updateMyListBadge(); },
-  identifyAnswer,
-  identifySkip,
-  identifyReset,
+  removeSighting: id => { removeSighting(id); renderMyList(); updateMyListBadge(); },
+  openMyListDate: key => renderMyListDetail(key),
+  closeMyListDetail: () => renderMyListDates(),
   openInatObs,
   _switchNeighbor: idx => { const n = _neighbors[idx]; if (n) onNeighborClick(n.code, n.feature); },
   ICONS,
@@ -76,6 +73,13 @@ function applyTheme(isDark) {
   if (tog) tog.checked = isDark;
   if (lbl) lbl.textContent = isDark ? 'Dark mode' : 'Light mode';
   if (ico) ico.outerHTML = (isDark ? MOON_SVG : SUN_SVG).replace('<svg ', '<svg id="theme-icon" ');
+  // Keep native status-bar icons legible for both themes
+  if (window.Capacitor?.isNativePlatform?.()) {
+    try {
+      const plugin = window.Capacitor.Plugins.SafeArea;
+      plugin?.setSystemBarsStyle?.({ style: isDark ? 'DARK' : 'LIGHT' });
+    } catch {}
+  }
 }
 function initTheme() { applyTheme(localStorage.getItem('moth_theme') !== 'light'); }
 function toggleTheme() {
@@ -110,7 +114,6 @@ function switchTab(tab) {
     if (d) d.classList.toggle('active', t === tab);
   }
   if (tab === 'mylist') renderMyList();
-  if (tab === 'identify') renderIdentifyStep();
   if (_drawerOpen) toggleDrawer();
 }
 
@@ -194,24 +197,44 @@ function openLightbox(src, alt) {
 function logSighting(id) {
   const m = state.allMoths.find(x => String(x.id) === String(id));
   if (!m) return;
-  addSighting({
-    id: m.id,
-    inatId: m.inatId || (m.source !== 'gbif' ? m.id : null),
-    name: m.name,
-    sci: m.sci,
-    photoUrl: m.photo?.url,
-    score: m.flightScore || 0,
-    lat: state.currentLat,
-    lng: state.currentLng,
-    ecoregion: state.ecoregion?.name || '',
-  });
-  showToast(`${m.name} logged to My List`);
+  if (hasSighting(m.sci)) {
+    removeSightingBySpec(m.sci);
+    showToast(`${m.name} removed from My List`);
+  } else {
+    addSighting({
+      speciesId: m.id,
+      commonName: m.name,
+      sciName: m.sci,
+      location: state.currentName || '',
+      lat: state.currentLat,
+      lng: state.currentLng,
+      ecoregion: state.ecoregion?.name || '',
+      score: m.flightScore || 0,
+    });
+    showToast(`${m.name} logged to My List`);
+  }
   updateMyListBadge();
-  renderMoths(); // refresh + buttons → checkmarks
+  renderMoths();
+  syncModalLogBtn(id);
+}
+
+function syncModalLogBtn(speciesId) {
+  const btn = document.getElementById(`modal-log-btn-${speciesId}`);
+  if (!btn) return;
+  const m = state.allMoths.find(x => String(x.id) === String(speciesId));
+  const logged = m ? hasSighting(m.sci) : false;
+  if (logged) {
+    btn.className = 'btn btn-sm btn-logged';
+    btn.innerHTML = `<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Logged`;
+  } else {
+    btn.className = 'btn btn-primary btn-sm';
+    btn.innerHTML = `<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>Log sighting`;
+  }
+  btn.style.flex = '1';
 }
 
 function updateMyListBadge() {
-  const count = getTonightCount();
+  const count = Object.keys(getSightingsByDate()).length;
   const badge = document.getElementById('mylist-badge');
   if (badge) {
     badge.textContent = count > 0 ? count : '';
@@ -219,154 +242,165 @@ function updateMyListBadge() {
   }
 }
 
+// ─── My List ──────────────────────────────────────────────────
+function mlFmtTime(ts) {
+  return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function mlSetHeader(html) {
+  const el = document.getElementById('mylist-header');
+  if (el) el.innerHTML = html;
+}
+
 function renderMyList() {
+  if (_myListDateKey) renderMyListDetail(_myListDateKey);
+  else renderMyListDates();
+}
+
+function renderMyListDates() {
+  _myListDateKey = null;
+  mlSetHeader(`
+    <div class="mylist-heading">My List</div>
+    <div class="mylist-subhead">Tonight's sightings · Tap + on any species card to log</div>
+  `);
+
   const container = document.getElementById('mylist-content');
   if (!container) return;
-  const groups = getSightingsGroupedByDate();
-  const dates = Object.keys(groups);
-  if (!dates.length) {
-    container.innerHTML = `<div class="stub-state">
-      <span class="stub-icon">${ICONS.moon}</span>
-      <h2>No sightings yet</h2>
-      <p>Tap the <strong>+</strong> button on any species card to log a sighting tonight.</p>
-    </div>`;
+
+  const byDate = getSightingsByDate();
+  const dateKeys = Object.keys(byDate).sort((a, b) => b.localeCompare(a)); // newest first
+
+  if (!dateKeys.length) {
+    container.innerHTML = `<div class="mylist-empty">No sightings yet. Tap + on any species to log it.</div>`;
     return;
   }
-  container.innerHTML = dates.map(date => `
-    <div class="mylist-group">
-      <div class="mylist-date-header">${date}</div>
-      ${groups[date].map(s => `
-        <div class="mylist-entry">
-          ${s.photoUrl ? `<img class="mylist-thumb" src="${s.photoUrl}" alt="${s.name}">` : `<div class="mylist-thumb mylist-thumb-empty">${ICONS.mothSilhouette}</div>`}
-          <div class="mylist-info">
-            <div class="mylist-name">${s.name}</div>
-            <div class="mylist-sci">${s.sci}</div>
-            <div class="mylist-meta">${new Date(s.ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}${s.ecoregion ? ' · ' + s.ecoregion : ''}</div>
-          </div>
-          <div class="mylist-actions">
-            ${s.inatId ? `<button class="mylist-inat-btn" onclick="window.__mothApp.openInatObs('${s.inatId}','${s.sci}')" title="Log on iNaturalist">iNat</button>` : ''}
-            <button class="mylist-del" onclick="window.__mothApp.deleteSighting('${s.uid}')" aria-label="Delete">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
-          </div>
-        </div>`).join('')}
-    </div>`).join('');
+
+  container.innerHTML = dateKeys.map(dk => {
+    const entries = byDate[dk];
+    const d = new Date(dk + 'T12:00:00'); // noon avoids timezone edge cases
+    const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const location = entries.find(s => s.location)?.location || entries.find(s => s.ecoregion)?.ecoregion || '';
+    const firstCoord = entries.find(s => s.lat != null && s.lng != null);
+    const coordStr = firstCoord
+      ? `${Math.abs(firstCoord.lat).toFixed(4)}° ${firstCoord.lat >= 0 ? 'N' : 'S'}, ${Math.abs(firstCoord.lng).toFixed(4)}° ${firstCoord.lng >= 0 ? 'E' : 'W'}`
+      : '';
+    const timestamps = entries.map(s => s.timestamp).filter(Boolean);
+    const minTs = Math.min(...timestamps);
+    const maxTs = Math.max(...timestamps);
+    const timeRange = timestamps.length > 1 && minTs !== maxTs
+      ? `${mlFmtTime(minTs)} – ${mlFmtTime(maxTs)}`
+      : timestamps.length ? mlFmtTime(minTs) : entries[0].time || '';
+    const speciesCount = new Set(entries.map(s => s.sciName)).size;
+    return `<button class="mylist-date-card" onclick="window.__mothApp.openMyListDate('${dk}')">
+      <div class="mylist-date-card-body">
+        <div class="mylist-date-label">${label}</div>
+        ${location ? `<div class="mylist-date-location">${location}</div>` : ''}
+        ${coordStr ? `<div class="mylist-date-coords">${coordStr}</div>` : ''}
+        <div class="mylist-date-meta">
+          <span>${timeRange}</span>
+          <span class="mylist-date-count">${speciesCount} species</span>
+        </div>
+      </div>
+      <span class="mylist-date-chevron">›</span>
+    </button>`;
+  }).join('');
 }
+
+function renderMyListDetail(dateKey) {
+  _myListDateKey = dateKey;
+
+  const byDate = getSightingsByDate();
+  const entries = byDate[dateKey];
+  if (!entries?.length) { renderMyListDates(); return; }
+
+  const d = new Date(dateKey + 'T12:00:00');
+  const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const BACK_CHEV = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>`;
+  mlSetHeader(`
+    <button class="mylist-back-btn" onclick="window.__mothApp.closeMyListDetail()">
+      ${BACK_CHEV}<span>Back</span>
+    </button>
+    <div class="mylist-detail-date">${label}</div>
+  `);
+
+  // Push history state so Android back button works
+  if (history.state?.mylistDetail !== dateKey) {
+    history.pushState({ mylistDetail: dateKey }, '');
+  }
+
+  const TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  // Deduplicate by sciName, keep earliest entry per species
+  const seen = new Set();
+  const unique = entries
+    .slice()
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    .filter(s => { if (seen.has(s.sciName)) return false; seen.add(s.sciName); return true; });
+
+  const container = document.getElementById('mylist-content');
+  if (!container) return;
+  container.innerHTML = unique.map(s => `
+    <div class="mylist-entry">
+      <div class="mylist-info">
+        <div class="mylist-name">${s.commonName || s.name || ''}</div>
+        <div class="mylist-sci">${s.sciName || s.sci || ''}</div>
+        <div class="mylist-meta">${s.time || mlFmtTime(s.timestamp || 0)} · ${s.score || 0}% flight likelihood</div>
+      </div>
+      <div class="mylist-actions">
+        <button class="mylist-del" onclick="window.__mothApp.removeSighting('${s.id}')" aria-label="Delete">${TRASH}</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Swipe right → back
+  let _sx = 0;
+  container.addEventListener('touchstart', e => { _sx = e.touches[0].clientX; }, { passive: true });
+  container.addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientX - _sx > 60) window.__mothApp.closeMyListDetail();
+  }, { passive: true });
+}
+
+// Android back button intercept
+window.addEventListener('popstate', () => {
+  if (_myListDateKey) renderMyListDates();
+});
 
 // ─── iNaturalist integration ────────────────────────────────────
 function openInatObs(inatId, sci) {
-  const url = inatId
-    ? `https://www.inaturalist.org/observations/new?taxon_id=${inatId}`
-    : `https://www.inaturalist.org/observations/new?taxon_name=${encodeURIComponent(sci)}`;
-  window.open(url, '_blank', 'noopener');
-}
+  const sciEncoded = encodeURIComponent(sci);
+  const webUrl = `https://www.inaturalist.org/observations/new?taxon_name=${sciEncoded}`;
 
-// ─── Identify key ──────────────────────────────────────────────
-function renderIdentifyStep() {
-  const container = document.getElementById('identify-content');
-  if (!container) return;
-  const char = CHARACTERS[_identifyStep];
-  if (!char) { renderIdentifyResults(); return; }
-
-  const MOTH_DIAGRAMS = {
-    forewing: `<svg viewBox="0 0 200 120" class="moth-diagram">
-      <ellipse cx="100" cy="60" rx="8" ry="22" fill="var(--text2)" opacity=".8"/>
-      <path d="M100 48 C70 30 20 20 10 40 C5 55 30 75 100 72Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
-      <path d="M100 60 C80 70 30 80 15 70 C5 65 20 85 100 80Z" fill="var(--surface2)" stroke="var(--border2)" stroke-width="1"/>
-      <path d="M100 48 C130 30 180 20 190 40 C195 55 170 75 100 72Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5" opacity=".5"/>
-      <text x="55" y="52" fill="var(--accent-text)" font-size="10" font-weight="700">← forewing →</text>
-    </svg>`,
-    hindwing: `<svg viewBox="0 0 200 120" class="moth-diagram">
-      <ellipse cx="100" cy="60" rx="8" ry="22" fill="var(--text2)" opacity=".8"/>
-      <path d="M100 48 C70 30 20 20 10 40 C5 55 30 75 100 72Z" fill="var(--surface2)" stroke="var(--border2)" stroke-width="1" opacity=".5"/>
-      <path d="M100 60 C80 70 30 80 15 70 C5 65 20 85 100 80Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
-      <text x="30" y="95" fill="var(--accent-text)" font-size="10" font-weight="700">← hindwing →</text>
-    </svg>`,
-    antenna: `<svg viewBox="0 0 200 120" class="moth-diagram">
-      <circle cx="100" cy="70" r="18" fill="var(--surface2)" stroke="var(--border2)" stroke-width="1.5"/>
-      <line x1="89" y1="54" x2="55" y2="15" stroke="var(--text2)" stroke-width="3" stroke-linecap="round"/>
-      <line x1="111" y1="54" x2="145" y2="15" stroke="var(--text2)" stroke-width="3" stroke-linecap="round"/>
-      <text x="20" y="30" fill="var(--text2)" font-size="9">feathered?</text>
-      <text x="128" y="30" fill="var(--text2)" font-size="9">or filiform?</text>
-    </svg>`,
-    posture: `<svg viewBox="0 0 200 120" class="moth-diagram">
-      <text x="10" y="30" fill="var(--text2)" font-size="10" font-weight="600">Flat</text>
-      <path d="M10 50 C40 35 60 35 70 50 C60 65 40 65 10 50Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1"/>
-      <text x="85" y="30" fill="var(--text2)" font-size="10" font-weight="600">Tent</text>
-      <path d="M90 60 L110 30 L130 60Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
-      <text x="150" y="30" fill="var(--text2)" font-size="10" font-weight="600">Angled</text>
-      <path d="M155 55 C170 35 185 30 190 40 L175 60Z" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1"/>
-    </svg>`,
-  };
-
-  const diagram = MOTH_DIAGRAMS[char.diagram] || MOTH_DIAGRAMS.forewing;
-  const progress = Math.round((_identifyStep / CHARACTERS.length) * 100);
-  const answered = Object.values(_identifyAnswers).filter(Boolean).length;
-
-  container.innerHTML = `
-    <div class="identify-top">
-      <div class="identify-progress-bar"><div style="width:${progress}%"></div></div>
-      <div class="identify-step-label">Step ${_identifyStep + 1} of ${CHARACTERS.length} · ${answered} answered</div>
-    </div>
-    ${diagram}
-    <div class="identify-question">${char.label}</div>
-    ${char.hint ? `<div class="identify-hint">${char.hint}</div>` : ''}
-    <div class="identify-options">
-      ${char.options.map(opt => `
-        <button class="identify-opt ${_identifyAnswers[char.id] === opt.value ? 'selected' : ''}"
-          onclick="window.__mothApp.identifyAnswer('${char.id}','${opt.value}')">
-          <strong>${opt.label}</strong>${opt.desc ? `<span>${opt.desc}</span>` : ''}
-        </button>`).join('')}
-    </div>
-    <div class="identify-nav">
-      <button class="identify-skip" onclick="window.__mothApp.identifySkip()">Skip</button>
-      <button class="identify-results-btn" onclick="window.__mothApp.identifyAnswer('${char.id}',window.__mothApp._state._identifyAnswers?.['${char.id}'] || null, true)">See results →</button>
-    </div>`;
-}
-
-function identifyAnswer(charId, value, goToResults) {
-  _identifyAnswers[charId] = value;
-  if (goToResults || _identifyStep >= CHARACTERS.length - 1) {
-    renderIdentifyResults();
-  } else {
-    _identifyStep++;
-    renderIdentifyStep();
+  if (!window.Capacitor?.isNativePlatform?.() || window.Capacitor.getPlatform?.() !== 'android') {
+    window.open(webUrl, '_blank', 'noopener');
+    return;
   }
-}
 
-function identifySkip() {
-  _identifyAnswers[CHARACTERS[_identifyStep]?.id] = null;
-  if (_identifyStep >= CHARACTERS.length - 1) renderIdentifyResults();
-  else { _identifyStep++; renderIdentifyStep(); }
-}
+  // Cancel the fallback chain the moment the page goes to background
+  // (meaning step 1 or 2 successfully launched the app)
+  let t2, t3;
+  const cancelAll = () => { clearTimeout(t2); clearTimeout(t3); };
+  document.addEventListener('visibilitychange', function onBg() {
+    if (document.hidden) {
+      cancelAll();
+      document.removeEventListener('visibilitychange', onBg);
+    }
+  });
 
-function identifyReset() {
-  _identifyAnswers = {};
-  _identifyStep = 0;
-  renderIdentifyStep();
-}
+  // Step 1 — intent deep link into the installed app
+  window.location.href =
+    `intent://www.inaturalist.org/observations/new?taxon_name=${sciEncoded}` +
+    `#Intent;scheme=https;package=org.inaturalist.android;end`;
 
-function renderIdentifyResults() {
-  const container = document.getElementById('identify-content');
-  if (!container) return;
-  const results = runKey(_identifyAnswers, state.allMoths);
-  container.innerHTML = `
-    <div class="identify-results-header">
-      <div class="identify-results-title">Most likely matches</div>
-      <button class="identify-reset-btn" onclick="window.__mothApp.identifyReset()">↩ Start over</button>
-    </div>
-    ${results.length === 0
-      ? `<div class="empty">No matches — try skipping some characters.</div>`
-      : results.map(r => `
-        <div class="identify-result-card" onclick="window.open('https://www.inaturalist.org/taxa/${r.inatId}','_blank','noopener')">
-          <div class="identify-result-score ${r.matchScore >= 75 ? 'score-good' : r.matchScore >= 50 ? 'score-fair' : 'score-poor'}">${r.matchScore}%</div>
-          <div class="identify-result-info">
-            <div class="identify-result-name">${r.name}${r.inForecast ? ' <span class="identify-tonight-badge">Tonight</span>' : ''}</div>
-            <div class="identify-result-sci">${r.sci}</div>
-            <div class="identify-result-note">${r.notes}</div>
-          </div>
-        </div>`).join('')}
-    <div class="identify-disclaimer">Results narrow from ${state.allMoths.length ? 'tonight\'s ' + state.allMoths.length + ' forecasted species, then' : ''} Wyoming/Colorado database. Always verify with iNaturalist.</div>`;
+  // Step 2 — custom URI scheme (if intent wasn't handled after 1 s)
+  t2 = setTimeout(() => {
+    window.location.href = `org.inaturalist.android://observations/new?taxon_name=${sciEncoded}`;
+
+    // Step 3 — web fallback (if custom scheme also went nowhere after 600 ms)
+    t3 = setTimeout(() => {
+      window.open(webUrl, '_blank', 'noopener');
+    }, 600);
+  }, 1000);
 }
 
 // ─── Location sheet ────────────────────────────────────────────
@@ -464,29 +498,22 @@ function getBboxFromFeature(feature) {
   };
 }
 
-// ─── Caching wrappers ─────────────────────────────────────────
-async function fetchAllSpeciesWithCache(lat, lng, queryOpts) {
-  const cacheKey = queryOpts.bbox
-    ? `eco_${Math.round(queryOpts.bbox.swlat*10)}_${Math.round(queryOpts.bbox.swlng*10)}`
-    : `rad_${Math.round(lat*10)}_${Math.round(lng*10)}`;
-  const cached = getCache('species', cacheKey);
-  if (cached) {
-    const ageMin = Math.round((getCacheAge('species', cacheKey) || 0) / 60000);
-    showCacheAge(ageMin);
-    return cached;
-  }
-  const data = await fetchAllSpecies(lat, lng, queryOpts);
-  if (data?.length) setCache('species', cacheKey, data);
-  return data;
+// ─── Cache helpers ────────────────────────────────────────────
+function geoKey(lat, lng) {
+  return `${Math.round(lat * 10)}_${Math.round(lng * 10)}`;
 }
-
-function showCacheAge(ageMin) {
+function speciesKey(opts) {
+  return opts.bbox
+    ? `eco_${Math.round(opts.bbox.swlat * 10)}_${Math.round(opts.bbox.swlng * 10)}`
+    : `rad_${Math.round(opts._lat * 10)}_${Math.round(opts._lng * 10)}`;
+}
+function showCacheAge(sk) {
+  const ageMs = getCacheAge('species', sk);
   const el = document.getElementById('cache-age-note');
-  if (!el) return;
-  if (ageMin < 1) return;
-  el.textContent = `Species data ${ageMin < 60 ? ageMin+'m' : Math.round(ageMin/60)+'h'} old`;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
+  if (!el || !ageMs) return;
+  const ageMin = Math.round(ageMs / 60000);
+  el.textContent = ageMin < 1 ? '' : `Updated ${ageMin < 60 ? ageMin + 'm' : Math.round(ageMin / 60) + 'h'} ago`;
+  el.style.display = ageMin < 1 ? 'none' : 'block';
 }
 
 // ─── Main fetch ───────────────────────────────────────────────
@@ -498,6 +525,56 @@ async function fetchAll(lat, lng, locationName) {
   setLocationLabel(locationName);
   toggleLocationSheet(false);
 
+  const gk = geoKey(lat, lng);
+
+  // Serve full UI from cache instantly if all three caches are warm
+  const cachedEco    = getCacheStale('ecoregion', gk);
+  const cachedHours  = cachedEco ? getCacheStale('weather', gk) : null;
+  const qOpts        = cachedEco
+    ? { bbox: cachedEco.bbox }
+    : { radiusKm: FALLBACK_RADIUS_KM, _lat: lat, _lng: lng };
+  const sk           = speciesKey({ ...qOpts, _lat: lat, _lng: lng });
+  const cachedMoths  = getCacheStale('species', sk);
+
+  if (cachedEco && cachedHours?.length && cachedMoths?.length) {
+    state.ecoregion = cachedEco;
+    state.forecastHours = cachedHours;
+    state.nowIndex = findNowIndex(cachedHours);
+    state.peakIndex = findPeakIndex(cachedHours, state.nowIndex);
+    state.allMoths = cachedMoths;
+    document.getElementById('timeline-section').style.display = 'block';
+    selectHour(state.peakIndex);
+    document.getElementById('controls-section').style.display = 'block';
+    updateEcoSelect(cachedEco, []);
+    renderMoths();
+    updateMyListBadge();
+    showCacheAge(sk);
+    setStatus('');
+    // Silent background refresh of weather (most time-sensitive)
+    if (!getCache('weather', gk)) {
+      fetchForecast(lat, lng).then(hours => {
+        if (!hours?.length) return;
+        setCache('weather', gk, hours);
+        state.forecastHours = hours;
+        state.nowIndex = findNowIndex(hours);
+        state.peakIndex = findPeakIndex(hours, state.nowIndex);
+        selectHour(state.peakIndex);
+      }).catch(() => {});
+    }
+    // Silent background refresh of species
+    if (!getCache('species', sk)) {
+      fetchAllSpecies(lat, lng, qOpts).then(data => {
+        if (!data?.length) return;
+        setCache('species', sk, data);
+        state.allMoths = data;
+        renderMoths();
+        showCacheAge(sk);
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  // Full loading path
   setStatus(`Loading forecast for ${locationName}…`);
   showSkeletons();
   document.getElementById('conditions-section').style.display = 'none';
@@ -505,11 +582,12 @@ async function fetchAll(lat, lng, locationName) {
   updateEcoSelect(null, []);
   document.getElementById('cache-age-note').style.display = 'none';
 
-  const [hours, ecoData] = await Promise.all([
-    fetchForecast(lat, lng),
-    fetchEcoregionAtPoint(lat, lng),
-  ]);
-
+  // Ecoregion — use cache if fresh, else fetch
+  let ecoData = getCache('ecoregion', gk);
+  if (!ecoData) {
+    ecoData = await fetchEcoregionAtPoint(lat, lng);
+    if (ecoData) setCache('ecoregion', gk, ecoData);
+  }
   state.ecoregion = ecoData;
 
   if (_sheetMapInited && ecoData) {
@@ -517,14 +595,25 @@ async function fetchAll(lat, lng, locationName) {
     setEcoregionLayers(ecoData.feature, [], () => {});
   }
 
-  const queryOpts = ecoData ? { bbox: ecoData.bbox } : { radiusKm: FALLBACK_RADIUS_KM };
+  // Weather — use cache if fresh, else fetch
+  let hours = getCache('weather', gk);
+  if (!hours) {
+    hours = await fetchForecast(lat, lng);
+    if (hours?.length) setCache('weather', gk, hours);
+  }
 
-  const [mothData, habitatData, neighbors, moonDaily] = await Promise.all([
-    fetchAllSpeciesWithCache(lat, lng, queryOpts),
+  const queryOpts = ecoData ? { bbox: ecoData.bbox } : { radiusKm: FALLBACK_RADIUS_KM, _lat: lat, _lng: lng };
+  const sKey = speciesKey({ ...queryOpts, _lat: lat, _lng: lng });
+
+  // Species, habitat, neighbors, moon in parallel
+  let mothData = getCache('species', sKey);
+  const [freshMoths, habitatData, neighbors, moonDaily] = await Promise.all([
+    mothData ? Promise.resolve(null) : fetchAllSpecies(lat, lng, queryOpts),
     fetchHabitat(lat, lng, ecoData ? 50 : FALLBACK_RADIUS_KM),
     ecoData ? fetchNeighboringEcoregions(ecoData.bbox, ecoData.code) : Promise.resolve([]),
     fetchMoonData(lat, lng),
   ]);
+  if (freshMoths?.length) { setCache('species', sKey, freshMoths); mothData = freshMoths; }
 
   state.habitat = habitatData;
   state.forecastDaily = moonDaily || [];
@@ -561,6 +650,7 @@ async function fetchAll(lat, lng, locationName) {
   document.getElementById('controls-section').style.display = 'block';
   renderMoths();
   updateMyListBadge();
+  showCacheAge(sKey);
 }
 
 // ─── Search / geolocation ─────────────────────────────────────
@@ -601,18 +691,21 @@ function shareMoth(id) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────
-document.getElementById('header-moon-icon').addEventListener('click', toggleMoonPanel);
-document.getElementById('header-moon-icon').style.cursor = 'pointer';
+// Moon icon — innerHTML only; click is handled by parent .home-btn button
 document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(getMoonPhase().fraction);
-document.getElementById('icon-chevleft').innerHTML = ICONS.chevronLeft;
-document.getElementById('icon-chevright').innerHTML = ICONS.chevronRight;
+// Double-chevron SVGs indicate day-step navigation
+const DBLCHEV_L = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`;
+const DBLCHEV_R = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 17 11 12 6 7"/><polyline points="13 17 18 12 13 7"/></svg>`;
+document.getElementById('icon-chevleft').innerHTML = DBLCHEV_L;
+document.getElementById('icon-chevright').innerHTML = DBLCHEV_R;
 document.getElementById('icon-star-badge').innerHTML = ICONS.star;
 
 // Drawer icons
 const HEART_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
 const GEAR_SVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+const MAGNIFY_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 document.getElementById('di-icon-forecast').innerHTML = ICONS.moon;
-document.getElementById('di-icon-identify').innerHTML = ICONS.camera;
+document.getElementById('di-icon-identify').innerHTML = MAGNIFY_SVG;
 document.getElementById('di-icon-mylist').innerHTML = HEART_SVG;
 document.getElementById('di-icon-settings').innerHTML = GEAR_SVG;
 
@@ -621,6 +714,94 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeModal(); toggleLocationSheet(false); if (_drawerOpen) toggleDrawer(); if (_moonPanelOpen) toggleMoonPanel(); }
 });
 document.querySelectorAll('#sort-sel,#freq-sel,#habitat-sel').forEach(el => el.addEventListener('change', () => renderMoths()));
+
+// ─── Location sheet swipe-down dismiss ────────────────────────
+function initLocationSheetSwipe() {
+  const sheet = document.getElementById('location-sheet');
+  let startY = 0;
+  let swipeDelta = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    swipeDelta = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    const d = e.touches[0].clientY - startY;
+    if (d > 0 && sheet.scrollTop === 0) {
+      swipeDelta = d;
+      sheet.style.transform = `translateY(${d}px)`;
+    }
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    sheet.style.transition = '';
+    if (swipeDelta > 100) {
+      sheet.style.transform = 'translateY(110%)';
+      setTimeout(() => {
+        sheet.style.transform = '';
+        toggleLocationSheet(false);
+      }, 220);
+    } else {
+      sheet.style.transform = '';
+    }
+  });
+}
+
+// ─── Android native back button ───────────────────────────────
+// MainActivity.java fires triggerWindowJSEvent("backButton", "{}") via the
+// Capacitor bridge, which dispatches a native CustomEvent on window.
+function initBackButton() {
+  window.addEventListener('backButton', () => {
+    // Dismiss the most transient overlay first, then navigate up the hierarchy.
+    if (_sheetOpen)                               { toggleLocationSheet(false); return; }
+    if (_moonPanelOpen)                           { toggleMoonPanel();          return; }
+    if (document.querySelector('.modal-overlay')) { closeModal();               return; }
+    if (_drawerOpen)                              { toggleDrawer();             return; }
+    if (_myListDateKey)                           { renderMyListDates();        return; }
+
+    // Non-forecast tab → return to forecast
+    const nonForecastActive = ['identify', 'mylist', 'settings'].some(t =>
+      document.getElementById(`tab-${t}`)?.classList.contains('active')
+    );
+    if (nonForecastActive) { switchTab('forecast'); return; }
+
+    // Already on forecast with nothing open → exit via history or App plugin
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      const CapApp = window.Capacitor?.Plugins?.App;
+      if (CapApp?.exitApp) CapApp.exitApp();
+    }
+  });
+}
+
+// ─── Safe area — runtime Capacitor WindowInsets ───────────────
+function initSafeArea() {
+  // Probe a fixed element to convert env() to computed px values.
+  // The @capacitor-community/safe-area plugin ensures env(safe-area-inset-*)
+  // reflects real Android WindowInsets on all Chromium versions it supports.
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = [
+      'position:fixed', 'inset:0', 'pointer-events:none',
+      'visibility:hidden', 'z-index:-1',
+      'padding-top:env(safe-area-inset-top,0px)',
+      'padding-bottom:env(safe-area-inset-bottom,0px)',
+    ].join(';');
+    document.documentElement.appendChild(probe);
+    const cs = window.getComputedStyle(probe);
+    const statusH = parseFloat(cs.paddingTop) || 0;
+    const navH = parseFloat(cs.paddingBottom) || 0;
+    document.documentElement.removeChild(probe);
+    if (statusH > 0) document.documentElement.style.setProperty('--status-bar-height', `${statusH}px`);
+    if (navH > 0) document.documentElement.style.setProperty('--nav-bar-height', `${navH}px`);
+  } catch {}
+}
+initSafeArea();
+initLocationSheetSwipe();
+initBackButton();
 
 initTheme();
 updateMyListBadge();

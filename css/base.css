@@ -2,6 +2,8 @@
 /* Hide scrollbars — this is a Capacitor mobile app; scrollbars don't belong */
 *{scrollbar-width:none;-ms-overflow-style:none}
 ::-webkit-scrollbar{display:none}
+html,body{scrollbar-width:none;-ms-overflow-style:none;overflow-x:hidden}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
 :root{
   /* Dark field-guide palette */
   --bg:#0d1210;
@@ -37,6 +39,11 @@
   --sab:env(safe-area-inset-bottom,0px);
   --sal:env(safe-area-inset-left,0px);
   --sar:env(safe-area-inset-right,0px);
+  /* Runtime-queried hard boundaries — JS overwrites these with exact Capacitor px values */
+  --status-bar-height:env(safe-area-inset-top,0px);
+  --nav-bar-height:env(safe-area-inset-bottom,0px);
+  /* Composite header height — used wherever content must clear the app top-bar */
+  --app-header-height:calc(var(--bar-h) + var(--status-bar-height));
   /* Keyboard height — updated dynamically by app.js via visualViewport */
   --keyboard-h:0px;
 }
@@ -78,6 +85,7 @@
 
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:18px;
   background:var(--bg);
   color:var(--text);
   min-height:100vh;

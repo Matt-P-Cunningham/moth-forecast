@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { ICONS, moonPhaseSVG } from '../icons.js';
+import { calcMoonRiseSet } from '../moon.js';
 import { escapeHTML } from '../utils.js';
 
 const HABITAT_ICONS = {
@@ -12,6 +13,13 @@ const HABITAT_ICONS = {
   water: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-4 6-6 10-6 13a6 6 0 0 0 12 0c0-3-2-7-6-13z"/></svg>`,
   coastal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 17c3-2 5-2 8 0s5 2 8 0"/><path d="M2 7c3-2 5-2 8 0s5 2 8 0"/></svg>`,
 };
+
+function fmtMoonTime(dt) {
+  if (!dt) return '–';
+  try {
+    return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } catch { return '–'; }
+}
 
 export function renderConditions(h) {
   const grid = document.getElementById('conditions-grid');
@@ -33,12 +41,25 @@ export function renderConditions(h) {
     ? { quality: 'good', value: `${h.clouds}%`, sub: 'Partly cloudy', label: 'Clouds' }
     : { quality: 'good', value: h.clouds < 10 ? 'Clear' : `${h.clouds}%`, sub: 'Clear skies', label: 'Clouds' };
 
+  // Client-side moonrise/moonset — no API needed (Jean Meeus algorithm)
+  let moonTimes = '';
+  if (state.currentLat != null && state.currentLng != null) {
+    const { rise, set } = calcMoonRiseSet(h.y, h.mo, h.d, state.currentLat, state.currentLng);
+    const rStr = rise ? `↑ ${fmtMoonTime(rise)}` : '';
+    const sStr = set  ? `↓ ${fmtMoonTime(set)}`  : '';
+    if (rStr || sStr) {
+      const parts = [rStr, sStr].filter(Boolean).join(' · ');
+      moonTimes = `<div class="cond-moon-times">${parts}</div>`;
+    }
+  }
+
   grid.innerHTML = `
     <div class="cond-tile ${moonQuality}">
       <div class="cond-icon moon-color">${moonPhaseSVG(h.moon.fraction)}</div>
       <div class="cond-value" style="font-size:15px;padding-top:2px">${escapeHTML(h.moon.name)}</div>
       <div class="cond-label">Moon · ${h.moon.illum}% lit</div>
       <div class="cond-sub">${moonLabel}</div>
+      ${moonTimes}
     </div>
     <div class="cond-tile ${tempQuality}">
       <div class="cond-icon">${ICONS.thermometer}</div>

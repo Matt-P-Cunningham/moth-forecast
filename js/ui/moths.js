@@ -16,10 +16,7 @@ export function renderMoths() {
   else if (freq === 'rare') moths = moths.filter(m => m.count <= 20);
 
   if (habitatFilter) {
-    moths = moths.filter(m => {
-      const a = lookupAffinity(m);
-      return a.length === 0 || a.includes(habitatFilter);
-    });
+    moths = moths.filter(m => lookupAffinity(m).includes(habitatFilter));
   }
 
   const h = state.forecastHours[state.selectedIndex];
@@ -56,10 +53,10 @@ function renderCard(m, currentMonth) {
     : '<span class="freq-tag freq-rare">Rare</span>';
   const gbifBadge = m.source === 'gbif' ? '<span class="badge-gbif">GBIF</span>' : '';
 
-  const logged = hasSighting(m.id);
+  const logged = hasSighting(m.sci);
   const logBtn = `<button class="log-btn ${logged ? 'logged' : ''}"
-    onclick="event.stopPropagation();${logged ? '' : `window.__mothApp.logSighting('${m.id}')`}"
-    title="${logged ? 'Logged tonight' : 'Log sighting'}">
+    onclick="event.stopPropagation();window.__mothApp.logSighting('${m.id}')"
+    title="${logged ? 'Logged tonight — tap to remove' : 'Log sighting'}">
     ${logged
       ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`}

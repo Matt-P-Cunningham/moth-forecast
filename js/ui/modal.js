@@ -4,6 +4,7 @@ import { escapeHTML, attr, photoCreditText, photoCreditHTML, fullLabel, estimate
 import { calcMothScore } from '../scoring.js';
 import { MONTHS_SHORT } from '../config.js';
 import { lookupAffinity } from '../data/habitat-affinities.js';
+import { hasSighting } from '../sightings.js';
 import { showToast } from './toast.js';
 import { fetchGBIFPhoto } from '../species/gbif.js';
 
@@ -98,9 +99,15 @@ export async function openModal(id) {
           This app uses live third-party APIs and a simplified heuristic model. It is a field-planning aid, not a verified biological forecast.
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.__mothApp.logSighting('${m.id}')">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>Log sighting
-          </button>
+          ${(() => {
+            const logged = hasSighting(m.sci);
+            const cls = logged ? 'btn btn-sm btn-logged' : 'btn btn-primary btn-sm';
+            const icon = logged
+              ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+              : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+            const label = logged ? 'Logged' : 'Log sighting';
+            return `<button id="modal-log-btn-${m.id}" class="${cls}" style="flex:1" onclick="window.__mothApp.logSighting('${m.id}')"><span class="icon">${icon}</span>${label}</button>`;
+          })()}
           ${inatId ? `<button class="btn btn-sm" onclick="window.__mothApp.openInatObs('${inatId}','${attr(m.sci)}')">iNat ↗</button>` : ''}
           <button class="btn btn-sm" onclick="window.__mothApp.shareMoth('${m.id}')">Share</button>
           <button class="btn btn-sm" onclick="window.__mothApp.closeModal()">✕</button>
@@ -111,6 +118,35 @@ export async function openModal(id) {
 
   document.body.insertAdjacentHTML('beforeend', html);
   document.body.style.overflow = 'hidden';
+
+  // Swipe-down to dismiss
+  const overlayEl = document.querySelector('.modal-overlay');
+  const modalEl = overlayEl.querySelector('.modal');
+  let swipeStartY = 0;
+  let swipeDelta = 0;
+
+  overlayEl.addEventListener('touchstart', e => {
+    swipeStartY = e.touches[0].clientY;
+    swipeDelta = 0;
+    modalEl.style.transition = 'none';
+  }, { passive: true });
+
+  overlayEl.addEventListener('touchmove', e => {
+    const delta = e.touches[0].clientY - swipeStartY;
+    if (delta > 0 && modalEl.scrollTop <= 0) {
+      swipeDelta = delta;
+      modalEl.style.transform = `translateY(${delta}px)`;
+    }
+  }, { passive: true });
+
+  overlayEl.addEventListener('touchend', () => {
+    modalEl.style.transition = '';
+    if (swipeDelta > 120) {
+      closeModal();
+    } else {
+      modalEl.style.transform = '';
+    }
+  });
 }
 
 export function closeModal() {
