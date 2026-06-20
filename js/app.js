@@ -1,43 +1,83 @@
-// PLANNED: "Identify" tab — interactive dichotomous key for moth identification.
-// Visual branching key with photos at each decision node (wing shape, pattern, color, size).
-// Stub is already wired into the nav (marked "Coming soon"). Build as js/identify/ module.
-
 import { state } from './state.js';
 import { ICONS, moonPhaseSVG } from './icons.js';
-import { todayStr } from './utils.js';
 import { getMoonPhase } from './moon.js';
 import { fetchForecast, findNowIndex, findPeakIndex } from './forecast.js';
 import { fetchAllSpecies } from './species/index.js';
 import { fetchHabitat } from './habitat/index.js';
 import { fetchEcoregionAtPoint, fetchNeighboringEcoregions } from './ecoregion.js';
 import { geocodeText, reverseGeocode, getBrowserLocation } from './geo.js';
-import { initMap, placeMarker, setMapZoom, setEcoregionLayers, clearEcoregionLayers, toggleMapExpand } from './map.js';
 import { loadSavedLocation, saveLocation } from './storage.js';
 import { selectHour } from './ui/timeline.js';
-import { renderMoths, setView } from './ui/moths.js';
+import { renderMoths } from './ui/moths.js';
 import { openModal, closeModal } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
+import { initMap, placeMarker, setEcoregionLayers, invalidateMapSize } from './map.js';
 
 const FALLBACK_RADIUS_KM = 100;
+let _sheetOpen = false;
+let _drawerOpen = false;
+let _sheetMapInited = false;
+let _neighbors = [];
 
 window.__mothApp = {
   selectHour,
   openModal,
   closeModal,
-  setView,
   showToast,
   renderMoths,
-  toggleMapExpand,
   handleImgError: img => {
-    img.closest('.moth-img, .list-img, .modal-img').innerHTML =
-      `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
+    const container = img.closest('.species-photo, .modal-img');
+    if (container) container.innerHTML = `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
   },
   shareMoth,
   searchByText,
   geoLocate,
+  toggleLocationSheet,
+  toggleDrawer,
+  switchTab,
+  toggleTheme,
+  _switchNeighbor: idx => {
+    const n = _neighbors[idx];
+    if (n) onNeighborClick(n.code, n.feature);
+  },
   ICONS,
   get _state() { return state; },
 };
+
+// ─── Keyboard / safe-area ─────────────────────────────────────────
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const kbH = Math.max(0, window.innerHeight - window.visualViewport.height);
+    document.documentElement.style.setProperty('--keyboard-h', `${kbH}px`);
+    document.documentElement.classList.toggle('keyboard-open', kbH > 50);
+  });
+}
+
+// ─── Theme ───────────────────────────────────────────────────────
+const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>`;
+
+function applyTheme(isDark) {
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  const toggle = document.getElementById('theme-toggle');
+  const label = document.getElementById('theme-label');
+  const icon = document.getElementById('theme-icon');
+  if (toggle) toggle.checked = isDark;
+  if (label) label.textContent = isDark ? 'Dark mode' : 'Light mode';
+  if (icon) icon.outerHTML = (isDark ? MOON_ICON : SUN_ICON).replace('<svg ', '<svg id="theme-icon" ');
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('moth_theme');
+  applyTheme(saved !== 'light');
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.dataset.theme !== 'light';
+  const newDark = !isDark;
+  applyTheme(newDark);
+  localStorage.setItem('moth_theme', newDark ? 'dark' : 'light');
+}
 
 // ─── Status ──────────────────────────────────────────────────────
 function setStatus(msg, isError = false) {
@@ -47,28 +87,118 @@ function setStatus(msg, isError = false) {
   el.textContent = msg;
 }
 
+function setLocationLabel(name) {
+  document.getElementById('location-label').textContent = name || 'Set location';
+}
+
 function showSkeletons() {
   document.getElementById('controls-section').style.display = 'block';
   document.getElementById('results').innerHTML =
-    '<div class="moth-grid">' + Array(12).fill('<div class="skeleton"></div>').join('') + '</div>';
+    '<div class="species-list">' +
+    Array(8).fill('<div class="skeleton-card"></div>').join('') +
+    '</div>';
+}
+
+// ─── Tab switching ────────────────────────────────────────────────
+function switchTab(tab) {
+  const tabs = ['forecast', 'identify', 'mylist', 'settings'];
+  for (const t of tabs) {
+    const pane = document.getElementById(`tab-${t}`);
+    if (pane) pane.classList.toggle('active', t === tab);
+    const item = document.getElementById(`di-${t}`);
+    if (item) item.classList.toggle('active', t === tab);
+  }
+  // Close drawer after switching
+  if (_drawerOpen) toggleDrawer();
+}
+
+// ─── Drawer ───────────────────────────────────────────────────────
+function toggleDrawer() {
+  _drawerOpen = !_drawerOpen;
+  document.getElementById('drawer').classList.toggle('open', _drawerOpen);
+  document.getElementById('drawer-backdrop').classList.toggle('open', _drawerOpen);
+}
+
+// ─── Location sheet ───────────────────────────────────────────────
+function toggleLocationSheet(force) {
+  _sheetOpen = force !== undefined ? !!force : !_sheetOpen;
+  document.getElementById('location-sheet').style.display = _sheetOpen ? 'block' : 'none';
+  document.getElementById('sheet-backdrop').style.display = _sheetOpen ? 'block' : 'none';
+  if (_sheetOpen) {
+    setTimeout(() => document.getElementById('loc-input').focus(), 50);
+    // Init map on first open
+    if (!_sheetMapInited) {
+      _sheetMapInited = true;
+      const lat = state.currentLat || 41.3;
+      const lng = state.currentLng || -105.6;
+      initMap(lat, lng, onMapPick);
+      if (state.ecoregion) setEcoregionLayers(state.ecoregion.feature, [], () => {});
+    }
+    setTimeout(() => invalidateMapSize(), 200);
+  }
+}
+
+// ─── Map pick callback ────────────────────────────────────────────
+async function onMapPick(lat, lng) {
+  placeMarker(lat, lng, false);
+  setStatus('Detecting location…');
+  try {
+    const name = await reverseGeocode(lat, lng);
+    document.getElementById('loc-input').value = name;
+    fetchAll(lat, lng, name);
+  } catch {
+    setStatus('Could not detect location name. Try searching.', true);
+  }
 }
 
 // ─── Ecoregion UI ────────────────────────────────────────────────
-function updateEcoregionDisplay(eco) {
-  const el = document.getElementById('ecoregion-info');
+function updateEcoSelect(eco, neighbors) {
+  _neighbors = neighbors || [];
+  const sel = document.getElementById('eco-sel');
+  if (!sel) return;
+
   if (!eco) {
-    el.style.display = 'none';
+    sel.innerHTML = '<option value="current">Detecting ecoregion…</option>';
+    sel.disabled = true;
+    sel.classList.remove('neighbor-active');
     return;
   }
-  document.getElementById('ecoregion-name').textContent = eco.name;
-  document.getElementById('ecoregion-l2').textContent = eco.l3name || eco.l2name;
-  document.getElementById('ecoregion-l1').textContent = eco.l2name;
-  el.style.display = 'flex';
+
+  let html = `<option value="current">${esc(eco.name)} (current)</option>`;
+  const limited = _neighbors.slice(0, 8);
+  for (let i = 0; i < limited.length; i++) {
+    html += `<option value="n${i}">${esc(limited[i].name)}</option>`;
+  }
+  sel.innerHTML = html;
+  sel.disabled = false;
+  sel.value = 'current';
+  sel.classList.remove('neighbor-active');
 }
 
-// ─── Ecoregion neighbor click ─────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ─── Eco select change ────────────────────────────────────────────
+document.getElementById('eco-sel').addEventListener('change', function() {
+  if (this.value === 'current') {
+    this.classList.remove('neighbor-active');
+    // Re-run current ecoregion
+    if (state.ecoregion) {
+      onNeighborClick(state.ecoregion.code, state.ecoregion.feature);
+    }
+  } else {
+    const idx = parseInt(this.value.replace('n', ''), 10);
+    const n = _neighbors[idx];
+    if (n) {
+      this.classList.add('neighbor-active');
+      onNeighborClick(n.code, n.feature);
+    }
+  }
+});
+
+// ─── Neighbor ecoregion click ─────────────────────────────────────
 async function onNeighborClick(code, feature) {
-  // Find the full eco object from neighbor list; rebuild from feature if needed
   const eco = {
     code,
     name: feature.properties.US_L4NAME,
@@ -79,29 +209,27 @@ async function onNeighborClick(code, feature) {
     feature,
   };
   state.ecoregion = eco;
-  updateEcoregionDisplay(eco);
+  setLocationLabel(eco.name);
   setStatus(`Switching to ${eco.name}…`);
   showSkeletons();
   document.getElementById('conditions-section').style.display = 'none';
 
-  // Refresh neighbors and species for the newly selected ecoregion
   const [mothData, neighbors] = await Promise.all([
     fetchAllSpecies(state.currentLat, state.currentLng, { bbox: eco.bbox }),
     fetchNeighboringEcoregions(eco.bbox, eco.code),
   ]);
 
-  setEcoregionLayers(eco.feature, neighbors.map(n => n.feature), onNeighborClick);
+  updateEcoSelect(eco, neighbors);
+  document.getElementById('conditions-section').style.display = 'block';
 
   if (!mothData || !mothData.length) {
-    setStatus(`No moth records found in the ${eco.name} ecoregion for this time of year.`);
+    setStatus(`No moth records in ${eco.name} for this time of year.`);
     document.getElementById('results').innerHTML =
       `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No records found.</div>`;
     return;
   }
   state.allMoths = mothData;
-  const total = mothData.reduce((s, m) => s + m.count, 0);
-  setStatus(`${mothData.length} species · ${total.toLocaleString()} records · ${eco.name}`);
-  document.getElementById('controls-section').style.display = 'block';
+  setStatus('');
   renderMoths();
 }
 
@@ -126,48 +254,38 @@ async function fetchAll(lat, lng, locationName) {
   state.currentLng = lng;
   state.currentName = locationName;
   saveLocation(lat, lng, locationName);
+  setLocationLabel(locationName);
+  toggleLocationSheet(false);
 
-  setStatus(`Locating ecoregion and loading forecast for ${locationName}…`);
+  setStatus(`Loading forecast for ${locationName}…`);
   showSkeletons();
   document.getElementById('conditions-section').style.display = 'none';
   document.getElementById('timeline-section').style.display = 'none';
-  updateEcoregionDisplay(null);
-  clearEcoregionLayers();
-  placeMarker(lat, lng, true);
+  updateEcoSelect(null, []);
 
-  // Phase 1: ecoregion + forecast in parallel (ecoregion drives species bbox)
   const [hours, ecoData] = await Promise.all([
     fetchForecast(lat, lng),
     fetchEcoregionAtPoint(lat, lng),
   ]);
 
   state.ecoregion = ecoData;
-  updateEcoregionDisplay(ecoData);
 
-  const queryOpts = ecoData
-    ? { bbox: ecoData.bbox }
-    : { radiusKm: FALLBACK_RADIUS_KM };
-
-  if (!ecoData) {
-    document.getElementById('ecoregion-note').textContent =
-      `Ecoregion data covers the continental US. Using ${FALLBACK_RADIUS_KM}km radius.`;
-    document.getElementById('ecoregion-note').style.display = 'block';
-  } else {
-    document.getElementById('ecoregion-note').style.display = 'none';
+  // Update map ecoregion layer if map is inited
+  if (_sheetMapInited && ecoData) {
+    placeMarker(lat, lng, false);
+    setEcoregionLayers(ecoData.feature, [], () => {});
   }
 
-  // Phase 2: species + habitat + neighbors in parallel
+  const queryOpts = ecoData ? { bbox: ecoData.bbox } : { radiusKm: FALLBACK_RADIUS_KM };
+
   const [mothData, habitatData, neighbors] = await Promise.all([
     fetchAllSpecies(lat, lng, queryOpts),
     fetchHabitat(lat, lng, ecoData ? 50 : FALLBACK_RADIUS_KM),
     ecoData ? fetchNeighboringEcoregions(ecoData.bbox, ecoData.code) : Promise.resolve([]),
   ]);
 
-  if (ecoData) {
-    setEcoregionLayers(ecoData.feature, neighbors.map(n => n.feature), onNeighborClick);
-  }
-
   state.habitat = habitatData;
+  updateEcoSelect(ecoData, neighbors);
 
   if (hours && hours.length) {
     state.forecastHours = hours;
@@ -177,11 +295,11 @@ async function fetchAll(lat, lng, locationName) {
     selectHour(state.peakIndex);
   } else {
     state.forecastHours = [];
-    setStatus('Could not load forecast data. Check your connection and try again.', true);
+    setStatus('Could not load forecast. Check your connection.', true);
   }
 
   if (!mothData) {
-    setStatus('Could not load species data. Check your connection and try again.', true);
+    setStatus('Could not load species data. Check your connection.', true);
     document.getElementById('results').innerHTML = '';
     return;
   }
@@ -190,18 +308,13 @@ async function fetchAll(lat, lng, locationName) {
 
   if (!state.allMoths.length) {
     setStatus('');
-    const areaLabel = ecoData ? `the ${ecoData.name} ecoregion` : `within ${FALLBACK_RADIUS_KM}km of this location`;
+    const area = ecoData ? `the ${ecoData.name} ecoregion` : `within ${FALLBACK_RADIUS_KM}km`;
     document.getElementById('results').innerHTML =
-      `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No moth records found in ${areaLabel} for this time of year.</div>`;
+      `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No moth records found in ${area} for this time of year.</div>`;
     return;
   }
 
-  const total = state.allMoths.reduce((s, m) => s + m.count, 0);
-  const inatCount = state.allMoths.filter(m => m.source !== 'gbif').length;
-  const gbifCount = state.allMoths.filter(m => m.source !== 'inat').length;
-  const areaLabel = ecoData ? ecoData.name : `${FALLBACK_RADIUS_KM}km radius`;
-  setStatus(`${state.allMoths.length} species · ${total.toLocaleString()} records · ${areaLabel} · iNat: ${inatCount} · GBIF: ${gbifCount}`);
-
+  setStatus('');
   document.getElementById('controls-section').style.display = 'block';
   renderMoths();
 }
@@ -213,35 +326,28 @@ async function searchByText() {
   setStatus('Looking up location…');
   try {
     const result = await geocodeText(q);
-    if (!result) { setStatus('Location not found. Try a city, region, country, or postal code.', true); return; }
+    if (!result) { setStatus('Location not found. Try a city or region.', true); return; }
     document.getElementById('loc-input').value = result.name;
     fetchAll(result.lat, result.lng, result.name);
-  } catch(e) { setStatus('Could not look up location. Try again.', true); }
+  } catch { setStatus('Could not look up location. Try again.', true); }
 }
 
 async function geoLocate() {
   if (!navigator.geolocation) {
-    setStatus('Geolocation not supported. Search by city name or use the map instead.', true);
+    setStatus('GPS not available — search by city name', true);
+    toggleLocationSheet(true);
     return;
   }
-  setStatus('Getting your location…');
+  setStatus('Getting GPS location…');
   try {
     const { lat, lng } = await getBrowserLocation();
     const name = await reverseGeocode(lat, lng);
     document.getElementById('loc-input').value = name;
     fetchAll(lat, lng, name);
-  } catch(e) {
-    setStatus('Could not get location. Search by city name or use the map instead.', true);
+  } catch {
+    setStatus('GPS unavailable — enter a city or region to continue', true);
+    toggleLocationSheet(true);
   }
-}
-
-async function onMapPick(lat, lng) {
-  lat = (+lat).toFixed(5);
-  lng = (+lng).toFixed(5);
-  setStatus('Looking up location…');
-  const name = await reverseGeocode(lat, lng);
-  document.getElementById('loc-input').value = name;
-  fetchAll(lat, lng, name);
 }
 
 // ─── Share ───────────────────────────────────────────────────────
@@ -252,9 +358,8 @@ function shareMoth(id) {
   const url = inatId
     ? `https://www.inaturalist.org/taxa/${inatId}`
     : `https://www.gbif.org/species/${m.gbifKey}`;
-  const eco = state.ecoregion;
-  const where = eco ? eco.name : state.currentName || 'this location';
-  const text = `Check out the ${m.name} — a moth that may be flying in the ${where}!\n${url}`;
+  const where = state.ecoregion ? state.ecoregion.name : state.currentName || 'this location';
+  const text = `Check out the ${m.name} — a moth flying in the ${where}!\n${url}`;
   if (navigator.share) {
     navigator.share({ title: m.name, text, url }).catch(() => {});
   } else if (navigator.clipboard) {
@@ -264,35 +369,35 @@ function shareMoth(id) {
   }
 }
 
-// ─── Init ────────────────────────────────────────────────────────
-document.getElementById('header-date').textContent = todayStr();
-document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchByText(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-document.getElementById('icon-mapexpand').innerHTML = ICONS.expand;
-document.getElementById('icon-search').innerHTML = ICONS.search;
-document.getElementById('icon-mylocation').innerHTML = ICONS.pin;
-document.getElementById('icon-maphint').innerHTML = ICONS.pin;
-document.getElementById('icon-grid').innerHTML = ICONS.grid;
-document.getElementById('icon-list').innerHTML = ICONS.list;
+// ─── Init ─────────────────────────────────────────────────────────
+document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(getMoonPhase().fraction);
 document.getElementById('icon-chevleft').innerHTML = ICONS.chevronLeft;
 document.getElementById('icon-chevright').innerHTML = ICONS.chevronRight;
 document.getElementById('icon-star-badge').innerHTML = ICONS.star;
-document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(getMoonPhase().fraction);
 
-document.querySelectorAll('#sort-sel, #freq-sel, #habitat-sel').forEach(el => {
-  el.addEventListener('change', () => {
-    if (window.__mothApp && window.__mothApp.renderMoths) window.__mothApp.renderMoths();
-  });
+// Drawer icons
+document.getElementById('di-icon-forecast').innerHTML = ICONS.moon;
+document.getElementById('di-icon-identify').innerHTML = ICONS.camera;
+document.getElementById('di-icon-mylist').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+document.getElementById('di-icon-settings').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
+document.getElementById('loc-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchByText();
 });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); toggleLocationSheet(false); if (_drawerOpen) toggleDrawer(); }
+});
+document.querySelectorAll('#sort-sel, #freq-sel, #habitat-sel').forEach(el =>
+  el.addEventListener('change', () => window.__mothApp.renderMoths())
+);
+
+initTheme();
 
 const saved = loadSavedLocation();
 if (saved) {
+  setLocationLabel(saved.name);
   document.getElementById('loc-input').value = saved.name;
-  initMap(saved.lat, saved.lng, onMapPick);
   fetchAll(saved.lat, saved.lng, saved.name);
 } else {
-  initMap(20, 0, onMapPick);
-  setMapZoom(2);
   geoLocate();
 }

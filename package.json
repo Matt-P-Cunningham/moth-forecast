@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "build": "rsync -a --delete --exclude='.git' --exclude='www' --exclude='android' --exclude='node_modules' --exclude='package*.json' --exclude='capacitor.config.json' --exclude='.DS_Store' --exclude='.gitignore' . www/",
+    "sync": "npm run build && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor-community/safe-area": "^8.0.1",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1"
+  }
+}

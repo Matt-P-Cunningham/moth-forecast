@@ -1,21 +1,90 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f5f4f0;--surface:#fff;--border:#e2e0da;--text:#1a1a18;--muted:#6b6960;
-  --accent:#3d6b2e;--accent-light:#eaf3de;--accent-text:#2a4d1f;
-  --amber:#854f0b;--amber-light:#faeeda;--amber-text:#633806;
-  --gray-light:#f1efe8;--gray-text:#5f5e5a;
-  --info:#185fa5;--info-light:#e6f1fb;
-  --danger:#a32d2d;--danger-light:#fcebeb;
-  --purple:#534ab7;--purple-light:#eeedfe;--purple-text:#3c3489;
-  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+  /* Dark field-guide palette */
+  --bg:#0d1210;
+  --bg2:#131915;
+  --surface:#19201a;
+  --surface2:#202b22;
+  --border:#29322a;
+  --border2:#374238;
+  --text:#d5e2d5;
+  --text2:#adbfaf;
+  --muted:#668068;
+  --accent:#54a668;
+  --accent-dim:#3d7a4e;
+  --accent-bg:#152318;
+  --accent-text:#7fcc94;
+  --amber:#c49a2d;
+  --amber-bg:#1e190a;
+  --amber-text:#e0c060;
+  --danger:#b84848;
+  --danger-bg:#200e0e;
+  --danger-text:#df7060;
+  --info:#4a8eb5;
+  --info-bg:#0e1b24;
+  --info-text:#70b0df;
+  --moon:#d4b06a;
+  --moon-bg:#1e1808;
+  --radius:12px;
+  --radius-sm:8px;
+  --radius-lg:16px;
+  --bar-h:52px;
+  /* Safe area insets — env() works on iOS/modern Chrome; plugin polyfills Android */
+  --sat:env(safe-area-inset-top,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
+  --sar:env(safe-area-inset-right,0px);
+  /* Keyboard height — updated dynamically by app.js via visualViewport */
+  --keyboard-h:0px;
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+/* ─── Light theme ───────────────────────────────────────────── */
+:root[data-theme="light"]{
+  --bg:#f2f0eb;
+  --bg2:#ffffff;
+  --surface:#ffffff;
+  --surface2:#f5f3ed;
+  --border:#dedad2;
+  --border2:#c8c4b9;
+  --text:#1a1f1a;
+  --text2:#454d44;
+  --muted:#7a8572;
+  --accent:#2d7a44;
+  --accent-dim:#1f5a32;
+  --accent-bg:#e8f5ed;
+  --accent-text:#1a4a28;
+  --amber:#9a6e10;
+  --amber-bg:#fef3e0;
+  --amber-text:#7a5210;
+  --danger:#c0392b;
+  --danger-bg:#fde8e8;
+  --danger-text:#922222;
+  --info:#2970a8;
+  --info-bg:#e8f2fb;
+  --info-text:#1a5080;
+  --moon:#8a6820;
+  --moon-bg:#fef3e0;
+  color-scheme:light;
+}
+/* Likelihood banner gradients in light mode (hardcoded in components.css) */
+:root[data-theme="light"] .likelihood-banner{background:linear-gradient(135deg,#d4f0e0,#e8f7ee);border-color:rgba(45,122,68,.3)}
+:root[data-theme="light"] .likelihood-banner.fair{background:linear-gradient(135deg,#fef3d8,#faebd4);border-color:rgba(154,110,16,.3)}
+:root[data-theme="light"] .likelihood-banner.poor{background:linear-gradient(135deg,#fde8e0,#f5d8d4);border-color:rgba(192,57,43,.3)}
+:root[data-theme="light"] .likelihood-banner.day{background:linear-gradient(135deg,#e8f2fb,#d8e8f8);border-color:rgba(41,112,168,.25)}
+/* Map tiles look better with no filter in light mode; darken in dark mode */
+:root[data-theme="light"] .leaflet-tile-pane{filter:none}
 
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  color-scheme:dark;
+}
 .icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0;vertical-align:-3px;color:inherit}
 .icon svg{display:block;width:100%;height:100%}
-.icon-sm{width:11px;height:11px;vertical-align:0}
+.icon-sm{width:12px;height:12px;vertical-align:0}
 .icon-md{width:22px;height:22px;vertical-align:-5px}
 .icon-lg{width:24px;height:24px}
-.icon-xl{width:40px;height:40px}
+.icon-xl{width:44px;height:44px}
 .icon-muted{color:var(--muted)}
 .icon-accent{color:var(--accent)}

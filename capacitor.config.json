@@ -1,0 +1,12 @@
+{
+  "appId": "com.mothforecast.app",
+  "appName": "Moth Lite",
+  "webDir": "www",
+  "plugins": {
+    "SystemBars": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#131915"
+    }
+  }
+}

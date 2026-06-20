@@ -2,146 +2,206 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Moth Forecast — Global</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="dark">
+<title>Moth Lite</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/map.css">
 <link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/map.css">
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <div>
-      <h1><span class="icon icon-md" id="header-moon-icon" aria-hidden="true"></span> Moth Forecast</h1>
-      <p>Global moths · iNaturalist &amp; GBIF · Open-Meteo · <span id="header-date"></span></p>
-    </div>
+<!-- Top bar -->
+<header class="top-bar">
+  <div class="top-bar-left">
+    <span class="icon icon-md" id="header-moon-icon" style="color:var(--moon)" aria-hidden="true"></span>
+    <span class="app-name">Moth Lite</span>
   </div>
-  <div class="moon-phase-pill" id="moon-pill" style="display:none">
-    <span class="icon icon-md" id="moon-icon-pill" aria-hidden="true"></span>
-    <div>
-      <div style="font-size:13px;font-weight:600" id="moon-name-pill">Full Moon</div>
-      <div style="font-size:11px;color:var(--muted)" id="moon-illum-pill">100% illuminated</div>
-    </div>
+  <div class="top-bar-right">
+    <button class="location-btn" id="location-toggle-btn" onclick="window.__mothApp.toggleLocationSheet()">
+      <span id="location-label">Detecting location…</span>
+      <span class="icon icon-sm" style="color:var(--muted)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </button>
+    <button class="hamburger-btn" id="hamburger-btn" onclick="window.__mothApp.toggleDrawer()" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
   </div>
 </header>
 
-<main>
-  <nav class="tab-nav" role="tablist">
-    <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-forecast">Forecast</button>
-    <button class="tab-btn tab-coming-soon" role="tab" aria-selected="false" aria-disabled="true" title="Coming soon">Identify <span class="coming-soon-pill">Soon</span></button>
-  </nav>
+<!-- Location sheet backdrop -->
+<div class="sheet-backdrop" id="sheet-backdrop" onclick="window.__mothApp.toggleLocationSheet()" style="display:none"></div>
 
-  <div class="search-card">
-    <div class="search-row">
-      <input type="text" id="loc-input" placeholder="Enter city, region/country, or postal code…" autocomplete="off" />
-      <button class="btn btn-primary" onclick="window.__mothApp.searchByText()"><span class="icon" aria-hidden="true" id="icon-search"></span> Search</button>
-      <button class="btn" onclick="window.__mothApp.geoLocate()"><span class="icon" aria-hidden="true" id="icon-mylocation"></span> My location</button>
-    </div>
+<!-- Drawer backdrop -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="window.__mothApp.toggleDrawer()"></div>
 
-    <div class="map-section">
-      <div class="map-wrap">
-        <div class="map-hint"><span class="icon icon-muted" aria-hidden="true" id="icon-maphint"></span> Drop a pin — ecoregion boundary loads automatically</div>
-        <div id="map"></div>
-        <button class="map-expand-btn" id="map-expand-btn" onclick="window.__mothApp.toggleMapExpand()" title="Expand map"><span class="icon" id="icon-mapexpand"></span></button>
-      </div>
-
-      <div class="ecoregion-info" id="ecoregion-info" style="display:none">
-        <div class="ecoregion-badge">
-          <div class="ecoregion-name" id="ecoregion-name"></div>
-          <div class="ecoregion-crumb">
-            <span id="ecoregion-l2"></span>
-            <span class="ecoregion-sep">·</span>
-            <span id="ecoregion-l1"></span>
-          </div>
-        </div>
-        <div class="ecoregion-hint">Hover the map edge to reveal neighbors · click to switch</div>
-      </div>
-      <div class="ecoregion-note" id="ecoregion-note" style="display:none"></div>
-    </div>
-
-    <p class="privacy-note">
-      <strong>Location privacy:</strong> coordinates are sent to iNaturalist, GBIF, Open-Meteo, OpenStreetMap/Nominatim, Overpass API, and the EPA ArcGIS service to retrieve species, forecast, habitat, ecoregion, and place data. Your last selected location is stored only in this browser.
-    </p>
-    <div class="status-bar" id="status"></div>
+<!-- Drawer -->
+<nav class="drawer" id="drawer">
+  <div class="drawer-header">
+    <span class="drawer-title">Menu</span>
+    <button class="drawer-close" onclick="window.__mothApp.toggleDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   </div>
-
-  <div id="timeline-section" class="timeline-section" style="display:none">
-    <div class="timeline-card">
-      <div class="timeline-controls">
-        <button class="tl-nav-btn" id="prev-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex - 1)" aria-label="Previous hour"><span class="icon" id="icon-chevleft" aria-hidden="true"></span></button>
-        <div id="selected-time-label">—</div>
-        <button class="tl-nav-btn" id="next-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex + 1)" aria-label="Next hour"><span class="icon" id="icon-chevright" aria-hidden="true"></span></button>
-        <span class="peak-badge" id="peak-badge"><span class="icon" id="icon-star-badge" aria-hidden="true"></span>Peak time</span>
-        <button class="btn now-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.nowIndex)">Now</button>
+  <div class="drawer-items">
+    <button class="drawer-item active" id="di-forecast" onclick="window.__mothApp.switchTab('forecast')">
+      <span class="drawer-item-icon" id="di-icon-forecast"></span>
+      Forecast
+    </button>
+    <button class="drawer-item" id="di-identify" onclick="window.__mothApp.switchTab('identify')">
+      <span class="drawer-item-icon" id="di-icon-identify"></span>
+      Identify
+    </button>
+    <button class="drawer-item" id="di-mylist" onclick="window.__mothApp.switchTab('mylist')">
+      <span class="drawer-item-icon" id="di-icon-mylist"></span>
+      My List
+    </button>
+    <button class="drawer-item" id="di-settings" onclick="window.__mothApp.switchTab('settings')">
+      <span class="drawer-item-icon" id="di-icon-settings"></span>
+      Settings
+    </button>
+  </div>
+  <div class="drawer-footer">
+    <div class="theme-toggle-row">
+      <div class="theme-toggle-label">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+        <span id="theme-label">Dark mode</span>
       </div>
-      <div class="timeline-scroll" id="timeline-scroll"></div>
+      <label class="toggle-switch" aria-label="Toggle theme">
+        <input type="checkbox" id="theme-toggle" onchange="window.__mothApp.toggleTheme()">
+        <span class="toggle-track"></span>
+      </label>
     </div>
   </div>
+</nav>
 
+<!-- Location sheet -->
+<div class="location-sheet" id="location-sheet" style="display:none">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Location</div>
+  <div class="search-row">
+    <input type="text" id="loc-input" placeholder="City, region, or zip code…" autocomplete="off" autocorrect="off">
+    <button class="btn btn-primary" onclick="window.__mothApp.searchByText()">Search</button>
+  </div>
+  <button class="btn-gps" id="btn-gps" onclick="window.__mothApp.geoLocate()">
+    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+    Use GPS Location
+  </button>
+  <div class="status-bar" id="status"></div>
+  <div class="sheet-map-wrap">
+    <div id="location-map"></div>
+    <button class="map-gps-btn" id="map-gps-btn" onclick="window.__mothApp.geoLocate()" title="GPS locate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Forecast tab -->
+<main id="tab-forecast" class="tab-pane active">
+
+  <!-- Timeline -->
+  <div id="timeline-section" style="display:none">
+    <div class="time-bar">
+      <button class="tl-nav-btn" id="prev-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex - 1)" aria-label="Previous hour">
+        <span class="icon" id="icon-chevleft" aria-hidden="true"></span>
+      </button>
+      <div id="selected-time-label">—</div>
+      <span class="peak-badge" id="peak-badge">
+        <span class="icon" id="icon-star-badge" aria-hidden="true"></span>Peak
+      </span>
+      <button class="tl-nav-btn" id="next-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex + 1)" aria-label="Next hour">
+        <span class="icon" id="icon-chevright" aria-hidden="true"></span>
+      </button>
+      <button class="now-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.nowIndex)">Now</button>
+    </div>
+    <div class="timeline-scroll" id="timeline-scroll"></div>
+  </div>
+
+  <!-- Conditions hero -->
   <div id="conditions-section" style="display:none">
     <div class="conditions" id="conditions-grid"></div>
-    <div class="data-source-note">
-      Hourly forecast from <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
-      Location from <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener noreferrer">Nominatim</a> ·
-      Habitat from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass/OSM</a> ·
-      Ecoregions from <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a>. Scores are heuristic estimates.
-    </div>
     <div class="likelihood-banner" id="likelihood-banner">
       <div class="likelihood-left">
-        <h2 id="likelihood-label">Excellent conditions</h2>
-        <p id="likelihood-desc">Warm, calm, and dark — ideal for moths</p>
+        <h2 id="likelihood-label">—</h2>
+        <p id="likelihood-desc"></p>
       </div>
-      <div class="likelihood-score" id="likelihood-score">92<span>/100</span></div>
+      <div class="likelihood-score" id="likelihood-score">—</div>
+    </div>
+    <div id="habitat-strip-container"></div>
+    <div class="data-note">
+      Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
+      Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a> ·
+      Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OSM</a> ·
+      Species: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a>
     </div>
   </div>
 
+  <!-- Species controls + list -->
   <div id="controls-section" style="display:none">
-    <div class="controls-row">
-      <label>Sort:</label>
-      <select id="sort-sel">
-        <option value="score">Flight likelihood</option>
-        <option value="count">Most observed</option>
-        <option value="alpha">Name A–Z</option>
-      </select>
-      <label style="margin-left:8px">Frequency:</label>
-      <select id="freq-sel">
-        <option value="">All species</option>
-        <option value="common">Common (100+ records)</option>
-        <option value="occasional">Occasional (21–100)</option>
-        <option value="rare">Rare (1–20)</option>
-      </select>
-      <label style="margin-left:8px">Habitat:</label>
-      <select id="habitat-sel">
-        <option value="">All habitats</option>
-        <option value="forest">Forest</option>
-        <option value="wetland">Wetland</option>
-        <option value="grassland">Grassland</option>
-        <option value="shrubland">Shrubland</option>
-        <option value="farmland">Farmland</option>
-        <option value="urban">Urban</option>
-        <option value="coastal">Coastal</option>
-      </select>
-      <span class="result-count" id="result-count"></span>
-      <div class="view-toggle">
-        <button class="view-btn active" id="btn-grid" onclick="window.__mothApp.setView('grid')" title="Grid view" aria-label="Grid view"><span class="icon" id="icon-grid" aria-hidden="true"></span></button>
-        <button class="view-btn" id="btn-list" onclick="window.__mothApp.setView('list')" title="List view" aria-label="List view"><span class="icon" id="icon-list" aria-hidden="true"></span></button>
+    <div class="list-header">
+      <div class="list-header-top">
+        <span class="result-count" id="result-count"></span>
+        <select id="sort-sel">
+          <option value="score">By likelihood</option>
+          <option value="count">Most observed</option>
+          <option value="alpha">Name A–Z</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select id="eco-sel" disabled>
+          <option value="current">Detecting ecoregion…</option>
+        </select>
+        <select id="habitat-sel">
+          <option value="">All habitats</option>
+          <option value="forest">Forest</option>
+          <option value="wetland">Wetland</option>
+          <option value="grassland">Grassland</option>
+          <option value="shrubland">Shrubland</option>
+          <option value="farmland">Farmland</option>
+          <option value="urban">Urban</option>
+          <option value="coastal">Coastal</option>
+        </select>
+        <select id="freq-sel">
+          <option value="">All</option>
+          <option value="common">Common</option>
+          <option value="occasional">Occasional</option>
+          <option value="rare">Rare</option>
+        </select>
       </div>
     </div>
     <div id="results"></div>
   </div>
+
 </main>
 
-<footer>
-  Observations: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a> ·
-  Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
-  Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> via Overpass API ·
-  Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a> ·
-  Map tiles: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> ·
-  Inspired by <a href="https://connect-apps.ceh.ac.uk/whats_flying_tonight/" target="_blank" rel="noopener noreferrer">CEH What's Flying Tonight</a>
-</footer>
+<!-- Identify tab (stub) -->
+<div id="tab-identify" class="tab-pane">
+  <div class="stub-state">
+    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+    <h2>Identify</h2>
+    <p>Coming soon — point your camera at a moth and we'll help narrow down the species using field marks.</p>
+  </div>
+</div>
+
+<!-- My List tab (stub) -->
+<div id="tab-mylist" class="tab-pane">
+  <div class="stub-state">
+    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
+    <h2>My List</h2>
+    <p>Save moths you've spotted or want to look for. Coming soon.</p>
+  </div>
+</div>
+
+<!-- Settings tab (stub) -->
+<div id="tab-settings" class="tab-pane">
+  <div class="stub-state">
+    <span class="stub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="64" height="64"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+    <h2>Settings</h2>
+    <p>App preferences coming soon.</p>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

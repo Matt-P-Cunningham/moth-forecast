@@ -12,7 +12,7 @@ export function renderTimeline() {
     const showDay = dl !== lastDay;
     lastDay = dl;
     const barCls = h.isDay ? 'day' : h.level;
-    const barH = h.isDay ? 4 : Math.max(4, Math.round(h.score / 100 * 50));
+    const barH = h.isDay ? 4 : Math.max(4, Math.round(h.score / 100 * 38));
     const classes = ['tl-col'];
     if (i === state.selectedIndex) classes.push('selected');
     if (i === state.nowIndex) classes.push('now');
@@ -23,16 +23,9 @@ export function renderTimeline() {
       ${i === state.peakIndex ? `<span class="icon icon-sm tl-star">${ICONS.star}</span>` : ''}
     </div>`;
   }).join('');
+
   const sel = wrap.querySelector('.tl-col.selected');
   if (sel) sel.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-}
-
-export function updateMoonPill(h) {
-  document.getElementById('moon-icon-pill').innerHTML = moonPhaseSVG(h.moon.fraction);
-  document.getElementById('moon-name-pill').textContent = h.moon.name;
-  document.getElementById('moon-illum-pill').textContent = `${h.moon.illum}% illuminated`;
-  document.getElementById('moon-pill').style.display = 'flex';
-  document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(h.moon.fraction);
 }
 
 export function selectHour(idx) {
@@ -40,12 +33,16 @@ export function selectHour(idx) {
   idx = Math.max(0, Math.min(state.forecastHours.length - 1, idx));
   state.selectedIndex = idx;
   const h = state.forecastHours[idx];
+
   document.getElementById('selected-time-label').textContent = fullLabel(h);
   document.getElementById('peak-badge').style.display = (idx === state.peakIndex) ? 'inline-flex' : 'none';
   document.getElementById('prev-hour').disabled = idx <= 0;
   document.getElementById('next-hour').disabled = idx >= state.forecastHours.length - 1;
+
+  // Update header moon icon
+  document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(h.moon.fraction);
+
   renderTimeline();
   renderConditions(h);
-  updateMoonPill(h);
   if (state.allMoths.length) renderMoths();
 }

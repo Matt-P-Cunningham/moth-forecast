@@ -1,4 +1,3 @@
-import { state } from './state.js';
 import { ICONS } from './icons.js';
 
 const STYLE_CURRENT = {
@@ -11,18 +10,24 @@ const STYLE_NEIGHBOR_HOVER = {
   color: '#7aab8a', weight: 1.5, fillColor: '#4a7c59', fillOpacity: 0.08,
 };
 
+let _map = null;
+let _marker = null;
 let _onPickCallback = null;
 let _ecoLayerGroup = null;
-let _mapExpanded = false;
 
-export function initMap(lat, lng, onPick) {
+export function initMap(lat, lng, onPick, containerId = 'location-map') {
+  // Don't init if Leaflet isn't loaded or container doesn't exist
+  if (typeof L === 'undefined') return;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
   _onPickCallback = onPick;
 
-  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lng], 6);
+  _map = L.map(containerId, { zoomControl: true, attributionControl: true }).setView([lat, lng], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  }).addTo(_map);
 
   const pinIcon = L.divIcon({
     className: 'map-pin-icon',
@@ -31,46 +36,33 @@ export function initMap(lat, lng, onPick) {
     iconAnchor: [15, 29]
   });
 
-  const marker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(map);
+  _marker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(_map);
 
-  marker.on('dragend', e => {
+  _marker.on('dragend', e => {
     const ll = e.target.getLatLng();
-    _onPickCallback(ll.lat, ll.lng);
+    if (_onPickCallback) _onPickCallback(ll.lat, ll.lng);
   });
 
-  map.on('click', e => {
-    marker.setLatLng(e.latlng);
-    _onPickCallback(e.latlng.lat, e.latlng.lng);
+  _map.on('click', e => {
+    _marker.setLatLng(e.latlng);
+    if (_onPickCallback) _onPickCallback(e.latlng.lat, e.latlng.lng);
   });
 
-  _ecoLayerGroup = L.layerGroup().addTo(map);
-
-  state._map = map;
-  state._marker = marker;
+  _ecoLayerGroup = L.layerGroup().addTo(_map);
 }
 
-export function toggleMapExpand() {
-  _mapExpanded = !_mapExpanded;
-  const wrap = document.querySelector('.map-wrap');
-  const btn = document.getElementById('map-expand-btn');
-  const iconEl = document.getElementById('icon-mapexpand');
-  wrap.classList.toggle('map-expanded', _mapExpanded);
-  if (iconEl) iconEl.innerHTML = _mapExpanded ? ICONS.compress : ICONS.expand;
-  if (btn) btn.title = _mapExpanded ? 'Collapse map' : 'Expand map';
-  if (state._map) {
-    // Wait for CSS transition to finish before invalidating size
-    setTimeout(() => state._map.invalidateSize(), 310);
-  }
+export function invalidateMapSize() {
+  if (_map) _map.invalidateSize();
 }
 
 export function placeMarker(lat, lng, pan) {
-  if (!state._map) return;
-  state._marker.setLatLng([lat, lng]);
-  if (pan) state._map.setView([lat, lng], Math.max(state._map.getZoom(), 6));
+  if (!_map || !_marker) return;
+  _marker.setLatLng([lat, lng]);
+  if (pan) _map.setView([lat, lng], Math.max(_map.getZoom(), 6));
 }
 
 export function setMapZoom(zoom) {
-  if (state._map) state._map.setZoom(zoom);
+  if (_map) _map.setZoom(zoom);
 }
 
 export function setEcoregionLayers(currentFeature, neighborFeatures, onNeighborClick) {
@@ -99,7 +91,7 @@ export function setEcoregionLayers(currentFeature, neighborFeatures, onNeighborC
 
   try {
     const bounds = L.geoJSON(currentFeature).getBounds();
-    state._map.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });
+    _map.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });
   } catch(e) {}
 }
 

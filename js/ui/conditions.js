@@ -16,48 +16,48 @@ const HABITAT_ICONS = {
 export function renderConditions(h) {
   const grid = document.getElementById('conditions-grid');
 
-  const tempDots = [
-    h.temp >= 50 ? 'on' : 'bad',
-    h.temp >= 60 ? 'on' : (h.temp >= 50 ? 'warn' : 'bad'),
-    h.temp >= 70 ? 'on' : (h.temp >= 60 ? 'warn' : 'bad'),
-  ];
-  const windDots = [
-    h.wind < 15 ? 'on' : 'bad',
-    h.wind < 10 ? 'on' : (h.wind < 15 ? 'warn' : 'bad'),
-    h.wind < 5 ? 'on' : (h.wind < 10 ? 'warn' : 'bad'),
-  ];
-  const moonDots = [
-    h.moon.darkScore >= 20 ? 'on' : 'warn',
-    h.moon.darkScore >= 50 ? 'on' : (h.moon.darkScore >= 20 ? 'warn' : 'bad'),
-    h.moon.darkScore >= 75 ? 'on' : (h.moon.darkScore >= 50 ? 'warn' : 'bad'),
-  ];
+  const tempQuality = h.temp >= 65 ? 'good' : h.temp >= 50 ? 'fair' : 'poor';
+  const tempLabel = h.temp >= 65 ? 'Ideal' : h.temp >= 50 ? 'Acceptable' : 'Too cold';
+
+  const windQuality = h.wind < 5 ? 'good' : h.wind < 15 ? 'fair' : 'poor';
+  const windLabel = h.wind < 5 ? 'Calm' : h.wind < 10 ? 'Light breeze' : h.wind < 15 ? 'Moderate' : 'Too windy';
+
+  const moonQuality = h.moon.darkScore >= 60 ? 'good' : h.moon.darkScore >= 30 ? 'fair' : 'poor';
+  const moonLabel = h.moon.darkScore >= 75 ? 'Very dark' : h.moon.darkScore >= 50 ? 'Fairly dark' : h.moon.darkScore >= 25 ? 'Some light' : 'Bright night';
+
+  const cloudPrecip = h.precip > 0
+    ? { quality: 'poor', value: `${h.precip.toFixed(2)}"`, sub: 'Rain — moths shelter', label: 'Precip' }
+    : h.clouds > 75
+    ? { quality: 'fair', value: `${h.clouds}%`, sub: 'Overcast', label: 'Clouds' }
+    : h.clouds > 30
+    ? { quality: 'good', value: `${h.clouds}%`, sub: 'Partly cloudy', label: 'Clouds' }
+    : { quality: 'good', value: h.clouds < 10 ? 'Clear' : `${h.clouds}%`, sub: 'Clear skies', label: 'Clouds' };
 
   grid.innerHTML = `
-    <div class="cond-card">
-      <div class="cond-label"><span class="icon">${ICONS.thermometer}</span> Temperature</div>
+    <div class="cond-tile ${moonQuality}">
+      <div class="cond-icon moon-color">${moonPhaseSVG(h.moon.fraction)}</div>
+      <div class="cond-value" style="font-size:15px;padding-top:2px">${escapeHTML(h.moon.name)}</div>
+      <div class="cond-label">Moon · ${h.moon.illum}% lit</div>
+      <div class="cond-sub">${moonLabel}</div>
+    </div>
+    <div class="cond-tile ${tempQuality}">
+      <div class="cond-icon">${ICONS.thermometer}</div>
       <div class="cond-value">${h.temp}°F</div>
-      <div class="cond-sub">${h.temp >= 65 ? 'Ideal' : h.temp >= 50 ? 'Acceptable' : 'Too cold'}</div>
-      <div class="cond-rating">${tempDots.map(d=>`<div class="dot ${d}"></div>`).join('')}</div>
+      <div class="cond-label">Temperature</div>
+      <div class="cond-sub">${tempLabel}</div>
     </div>
-    <div class="cond-card">
-      <div class="cond-label"><span class="icon">${ICONS.wind}</span> Wind</div>
+    <div class="cond-tile ${windQuality}">
+      <div class="cond-icon">${ICONS.wind}</div>
       <div class="cond-value">${h.wind} mph</div>
-      <div class="cond-sub">${h.wind < 5 ? 'Calm — ideal' : h.wind < 10 ? 'Light breeze' : h.wind < 15 ? 'Moderate' : 'Too windy'}</div>
-      <div class="cond-rating">${windDots.map(d=>`<div class="dot ${d}"></div>`).join('')}</div>
+      <div class="cond-label">Wind</div>
+      <div class="cond-sub">${windLabel}</div>
     </div>
-    <div class="cond-card">
-      <div class="cond-label"><span class="icon">${moonPhaseSVG(h.moon.fraction)}</span> Moon</div>
-      <div class="cond-value" style="font-size:16px;padding-top:4px">${escapeHTML(h.moon.name)}</div>
-      <div class="cond-sub">${h.moon.illum}% lit · ${h.moon.darkScore >= 75 ? 'Very dark' : h.moon.darkScore >= 50 ? 'Fairly dark' : h.moon.darkScore >= 25 ? 'Some light' : 'Bright night'}</div>
-      <div class="cond-rating">${moonDots.map(d=>`<div class="dot ${d}"></div>`).join('')}</div>
+    <div class="cond-tile ${cloudPrecip.quality}">
+      <div class="cond-icon">${ICONS.rain}</div>
+      <div class="cond-value">${escapeHTML(cloudPrecip.value)}</div>
+      <div class="cond-label">${cloudPrecip.label}</div>
+      <div class="cond-sub">${cloudPrecip.sub}</div>
     </div>
-    <div class="cond-card">
-      <div class="cond-label"><span class="icon">${ICONS.rain}</span> Precipitation</div>
-      <div class="cond-value">${h.precip > 0 ? h.precip.toFixed(2) + ' in' : 'None'}</div>
-      <div class="cond-sub">${h.precip > 0 ? 'Moths will shelter' : 'Clear — good'}</div>
-      <div class="cond-rating"><div class="dot ${h.precip === 0 ? 'on' : 'bad'}"></div><div class="dot ${h.precip === 0 ? 'on' : 'bad'}"></div><div class="dot ${h.precip === 0 ? 'on' : 'bad'}"></div></div>
-    </div>
-    ${state.habitat ? habitatCard(state.habitat) : ''}
   `;
 
   const banner = document.getElementById('likelihood-banner');
@@ -67,32 +67,33 @@ export function renderConditions(h) {
   document.getElementById('likelihood-score').innerHTML = h.score + '<span>/100</span>';
 
   document.getElementById('conditions-section').style.display = 'block';
+
+  if (state.habitat) {
+    document.getElementById('habitat-strip-container').innerHTML = habitatStrip(state.habitat);
+  } else {
+    document.getElementById('habitat-strip-container').innerHTML = '';
+  }
 }
 
-function habitatCard(habitat) {
+function habitatStrip(habitat) {
   const icon = HABITAT_ICONS[habitat.primary] || ICONS.leaf;
   const topTypes = Object.entries(habitat.types)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
+    .slice(0, 3)
     .filter(([, v]) => v > 0.05);
   const pills = topTypes.map(([k, v], i) =>
-    `<span class="habitat-pill ${i > 0 ? 'secondary' : ''}">${escapeHTML(formatHabitatName(k))} ${Math.round(v * 100)}%</span>`
+    `<span class="habitat-pill ${i > 0 ? 'secondary' : ''}">${escapeHTML(formatHabitat(k))} ${Math.round(v * 100)}%</span>`
   ).join('');
-  const sourceLabel = habitat.source === 'osm+sentinel' ? 'OSM + Sentinel-2' : habitat.source === 'sentinel' ? 'Sentinel-2' : 'OpenStreetMap';
-  return `<div class="cond-card">
-    <div class="cond-label"><span class="icon">${icon}</span> Habitat</div>
-    <div class="cond-value" style="font-size:15px;padding-top:4px">${escapeHTML(habitat.label)}</div>
-    <div class="cond-sub">${escapeHTML(habitat.description)}</div>
-    <div class="habitat-pills">${pills}</div>
-    <div style="font-size:10px;color:var(--muted);margin-top:6px">${sourceLabel}</div>
+  return `<div class="habitat-strip">
+    <div class="habitat-strip-icon">${icon}</div>
+    <div>
+      <div class="habitat-strip-label">${escapeHTML(habitat.label)}</div>
+      <div class="habitat-pills">${pills}</div>
+    </div>
   </div>`;
 }
 
-function formatHabitatName(key) {
-  const names = {
-    forest: 'Forest', wetland: 'Wetland', grassland: 'Grassland',
-    urban: 'Urban', farmland: 'Farmland', shrubland: 'Shrubland',
-    water: 'Water', coastal: 'Coastal',
-  };
-  return names[key] || key;
+function formatHabitat(key) {
+  return { forest:'Forest', wetland:'Wetland', grassland:'Grassland', urban:'Urban',
+    farmland:'Farmland', shrubland:'Shrubland', water:'Water', coastal:'Coastal' }[key] || key;
 }

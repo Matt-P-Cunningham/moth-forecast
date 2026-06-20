@@ -1,23 +1,196 @@
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:100}
-.header-left{display:flex;align-items:center;gap:12px}
-.header-left h1{font-size:19px;font-weight:700;letter-spacing:-0.4px;display:flex;align-items:center;gap:8px}
-.header-left p{font-size:12px;color:var(--muted);margin-top:1px}
-.moon-phase-pill{display:flex;align-items:center;gap:10px;background:var(--gray-light);border:1px solid var(--border);border-radius:99px;padding:6px 14px 6px 12px;font-size:13px;white-space:nowrap}
-
-main{max-width:1140px;margin:0 auto;padding:1.5rem}
-
-.tab-nav{display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:1px solid var(--border);padding-bottom:0}
-.tab-btn{height:36px;padding:0 18px;border:none;background:none;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;transition:color .15s,border-color .15s;display:inline-flex;align-items:center;gap:7px;font-family:inherit}
-.tab-btn:hover{color:var(--text)}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-.tab-btn.tab-coming-soon{cursor:default;opacity:0.5}
-.tab-btn.tab-coming-soon:hover{color:var(--muted)}
-.coming-soon-pill{font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:var(--gray-light);color:var(--muted);letter-spacing:0.3px;text-transform:uppercase}
-
-footer{margin-top:3rem;padding:1.5rem;text-align:center;font-size:12px;color:var(--muted);border-top:1px solid var(--border);line-height:1.6}
-footer a{color:var(--info)}
-
-@media(max-width:600px){
-  header{padding:.75rem 1rem}
-  main{padding:1rem}
+/* ─── Top bar ─────────────────────────────────────────────────── */
+.top-bar{
+  position:fixed;top:0;left:0;right:0;
+  /* Height expands to include the safe area so content sits below the status bar */
+  height:calc(var(--bar-h) + var(--sat));
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 16px calc(10px) 16px;
+  padding-top:var(--sat);
+  z-index:100;
 }
+.top-bar-left{display:flex;align-items:center;gap:8px}
+.top-bar-right{display:flex;align-items:center;gap:8px}
+.app-name{font-size:17px;font-weight:700;letter-spacing:-0.3px}
+.location-btn{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.18);
+  border-radius:99px;
+  padding:7px 14px;
+  color:var(--text);
+  font-size:13px;
+  cursor:pointer;
+  max-width:180px;
+  font-family:inherit;
+  font-weight:500;
+  transition:background .15s,border-color .15s;
+}
+.location-btn:hover{background:rgba(255,255,255,0.13);border-color:var(--accent)}
+#location-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.hamburger-btn{
+  width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;color:var(--text);cursor:pointer;
+  border-radius:var(--radius-sm);flex-shrink:0;
+}
+.hamburger-btn:hover{background:rgba(255,255,255,0.08)}
+.hamburger-btn svg{width:22px;height:22px}
+
+/* ─── Main scroll area ───────────────────────────────────────── */
+main{
+  /* Push below the top bar (which now includes safe area) */
+  margin-top:calc(var(--bar-h) + var(--sat));
+  /* Pad at bottom — no nav bar any more */
+  padding-bottom:calc(var(--sab) + 20px);
+  padding-left:var(--sal);
+  padding-right:var(--sar);
+}
+
+/* ─── Tabs ───────────────────────────────────────────────────── */
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* Stub tabs */
+.stub-state{
+  min-height:calc(100vh - var(--bar-h) - var(--sat));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:2rem 1.5rem;text-align:center;gap:16px;
+}
+.stub-icon{display:flex;align-items:center;justify-content:center;color:var(--muted);margin-bottom:8px}
+.stub-state h2{font-size:24px;font-weight:700;color:var(--text)}
+.stub-state p{font-size:15px;color:var(--muted);max-width:280px;line-height:1.65}
+
+/* ─── Drawer ─────────────────────────────────────────────────── */
+.drawer-backdrop{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:300;
+  display:none;
+  animation:fadeIn .2s ease;
+}
+.drawer-backdrop.open{display:block}
+
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;
+  width:min(280px,80vw);
+  background:var(--surface);
+  z-index:301;
+  transform:translateX(100%);
+  transition:transform .28s ease;
+  display:flex;flex-direction:column;
+  padding-top:var(--sat);
+  padding-bottom:var(--sab);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.5);
+}
+.drawer.open{transform:translateX(0)}
+
+.drawer-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  min-height:var(--bar-h);
+}
+.drawer-title{font-size:16px;font-weight:700;color:var(--text)}
+.drawer-close{
+  width:36px;height:36px;border-radius:50%;
+  border:none;background:none;color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.drawer-close svg{width:18px;height:18px}
+
+.drawer-items{flex:1;padding:8px 0;overflow-y:auto}
+.drawer-item{
+  width:100%;display:flex;align-items:center;gap:14px;
+  padding:16px 24px;
+  background:none;border:none;
+  color:var(--text2);font-size:16px;font-weight:500;
+  cursor:pointer;text-align:left;font-family:inherit;
+  transition:background .12s,color .12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.drawer-item:hover,.drawer-item.active{background:var(--accent-bg);color:var(--accent-text)}
+.drawer-item-icon{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0}
+.drawer-item-icon svg{width:100%;height:100%}
+
+/* ─── Drawer footer (theme toggle) ──────────────────────────── */
+.drawer-footer{
+  padding:14px 24px calc(14px + var(--sab));
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.theme-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;
+}
+.theme-toggle-label{
+  display:flex;align-items:center;gap:12px;
+  font-size:15px;font-weight:500;color:var(--text2);
+  flex:1;
+}
+.theme-toggle-label svg{width:20px;height:20px;flex-shrink:0;color:var(--muted)}
+
+/* Toggle switch */
+.toggle-switch{position:relative;cursor:pointer;flex-shrink:0}
+.toggle-switch input[type="checkbox"]{
+  opacity:0;position:absolute;width:0;height:0;
+}
+.toggle-track{
+  display:block;
+  width:46px;height:26px;
+  background:var(--border2);
+  border-radius:13px;
+  position:relative;
+  transition:background .2s;
+}
+.toggle-track::after{
+  content:'';
+  position:absolute;top:3px;left:3px;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+  transition:transform .2s;
+}
+.toggle-switch input:checked + .toggle-track{background:var(--accent-dim)}
+.toggle-switch input:checked + .toggle-track::after{transform:translateX(20px)}
+
+/* ─── Location sheet ─────────────────────────────────────────── */
+.sheet-backdrop{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.65);
+  z-index:200;
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  animation:fadeIn .2s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.location-sheet{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  background:var(--surface);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  /* Bottom padding includes sab so content clears the gesture bar */
+  padding:0 20px calc(28px + var(--sab));
+  z-index:201;
+  box-shadow:0 -8px 40px rgba(0,0,0,0.6);
+  animation:slideUp .25s ease;
+  /* Lift above keyboard when keyboard is open */
+  bottom:var(--keyboard-h,0px);
+}
+.keyboard-open .location-sheet{
+  bottom:var(--keyboard-h,0px);
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{
+  width:36px;height:4px;
+  border-radius:2px;
+  background:var(--border2);
+  margin:14px auto 20px;
+}
+.sheet-title{font-size:18px;font-weight:700;margin-bottom:14px}
+
+/* ─── Search (in location sheet) ─────────────────────────────── */
+.search-row{display:flex;gap:8px;margin-bottom:10px}

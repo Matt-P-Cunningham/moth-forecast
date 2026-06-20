@@ -11,28 +11,30 @@ export async function openModal(id) {
   const m = state.allMoths.find(x => String(x.id) === String(id));
   if (!m) return;
 
-  // Lazy-fetch GBIF photo once and cache it on the species object
   if (!m.photo && m.gbifKey) {
     m.photo = await fetchGBIFPhoto(m.gbifKey);
   }
+
   const h = state.forecastHours[state.selectedIndex];
   const currentMonth = h ? h.mo : (new Date().getMonth() + 1);
   const { active, peak } = estimateSeasonMonths(currentMonth);
   const nightScore = h ? h.score : 50;
   const fs = calcMothScore(m, nightScore);
-  const scoreColor = fs >= 70 ? 'var(--accent)' : fs >= 45 ? '#ef9f27' : 'var(--muted)';
+  const scoreColor = fs >= 65 ? 'var(--accent-text)' : fs >= 40 ? 'var(--amber-text)' : 'var(--muted)';
+  const scoreBorderColor = fs >= 65 ? 'var(--accent-dim)' : fs >= 40 ? 'var(--amber)' : 'var(--border2)';
 
   const img = m.photo && m.photo.url
     ? `<div class="modal-img"><img src="${attr(m.photo.url)}" alt="${attr(m.name)}" onerror="window.__mothApp.handleImgError(this)"></div>`
-    : `<div class="modal-img"><span class="moth-silhouette" style="width:80px;height:80px;opacity:0.2">${ICONS.mothSilhouette}</span></div>`;
+    : `<div class="modal-img"><span class="moth-silhouette" style="width:80px;height:80px;opacity:0.15">${ICONS.mothSilhouette}</span></div>`;
 
   const credit = photoCreditText(m)
     ? `<div class="modal-photo-credit">${photoCreditHTML(m)}</div>`
-    : `<div class="modal-photo-credit">No embedded photo license metadata was provided by the API. Use the source link before reusing any image.</div>`;
+    : `<div class="modal-photo-credit">No license metadata from API. Verify before reusing images.</div>`;
 
   const affinities = lookupAffinity(m);
   const habitatRow = affinities.length
-    ? `<div class="modal-section"><h3>Habitat affinity</h3><div class="habitat-pills">${affinities.map(a=>`<span class="habitat-pill">${escapeHTML(a)}</span>`).join('')}</div></div>`
+    ? `<div class="modal-section"><h3>Habitat affinity</h3>
+       <div class="habitat-pills-row">${affinities.map(a => `<span class="habitat-pill">${escapeHTML(a)}</span>`).join('')}</div></div>`
     : '';
 
   const inatId = m.inatId || (m.source !== 'gbif' ? m.id : null);
@@ -40,31 +42,42 @@ export async function openModal(id) {
 
   const html = `<div class="modal-overlay" onclick="if(event.target===this)window.__mothApp.closeModal()">
     <div class="modal">
+      <div class="sheet-handle" style="margin:10px auto 0"></div>
       ${img}
       ${credit}
-      <button class="modal-close" onclick="window.__mothApp.closeModal()" aria-label="Close"><span class="icon">${ICONS.x}</span></button>
+      <button class="modal-close" onclick="window.__mothApp.closeModal()" aria-label="Close">
+        <span class="icon">${ICONS.x}</span>
+      </button>
       <div class="modal-body">
         <div class="modal-title">${escapeHTML(m.name)}</div>
         <div class="modal-sci">${escapeHTML(m.sci)}</div>
-        <div class="modal-score-row">
+        <div class="modal-score-row" style="border-left-color:${scoreBorderColor}">
           <div class="modal-score-num" style="color:${scoreColor}">${fs}%</div>
           <div class="modal-score-label">estimated flight likelihood<br>${h ? escapeHTML(fullLabel(h)) : ''}</div>
         </div>
         <div class="modal-section">
           <h3>Flight season (estimated)</h3>
-          <div class="modal-bar-wrap">${MONTHS_SHORT.map((mo,i)=>{
-            const mn=i+1;
-            const cls=peak.includes(mn)?'peak':active.includes(mn)?'active':'';
+          <div class="modal-bar-wrap">${MONTHS_SHORT.map((mo, i) => {
+            const mn = i + 1;
+            const cls = peak.includes(mn) ? 'peak' : active.includes(mn) ? 'active' : '';
             return `<div class="modal-bar ${cls}" title="${mo}"></div>`;
           }).join('')}</div>
-          <div style="display:flex;gap:0;margin-top:4px">${MONTHS_SHORT.map(mo=>`<div style="flex:1;text-align:center;font-size:9px;color:var(--muted)">${mo[0]}</div>`).join('')}</div>
+          <div class="modal-bar-months">${MONTHS_SHORT.map(mo =>
+            `<div class="modal-bar-month">${mo[0]}</div>`
+          ).join('')}</div>
         </div>
         ${habitatRow}
         <div class="modal-section">
           <h3>Observation data</h3>
           <div class="modal-stats">
-            <div class="modal-stat"><div class="modal-stat-label">Records nearby</div><div class="modal-stat-value">${m.count.toLocaleString()}</div></div>
-            <div class="modal-stat"><div class="modal-stat-label">Source</div><div class="modal-stat-value">${m.source === 'both' ? 'iNat + GBIF' : m.source === 'gbif' ? 'GBIF' : 'iNaturalist'}</div></div>
+            <div class="modal-stat">
+              <div class="modal-stat-label">Records nearby</div>
+              <div class="modal-stat-value">${m.count.toLocaleString()}</div>
+            </div>
+            <div class="modal-stat">
+              <div class="modal-stat-label">Source</div>
+              <div class="modal-stat-value">${m.source === 'both' ? 'iNat + GBIF' : m.source === 'gbif' ? 'GBIF' : 'iNaturalist'}</div>
+            </div>
           </div>
         </div>
         <div class="modal-section">
@@ -77,10 +90,12 @@ export async function openModal(id) {
           </div>
         </div>
         <div class="disclaimer">
-          This app uses live third-party APIs and a simplified likelihood model. It is a field-planning aid, not a verified biological forecast. Review each provider's current API terms for production use.
+          This app uses live third-party APIs and a simplified heuristic model. It is a field-planning aid, not a verified biological forecast.
         </div>
-        <div style="display:flex;gap:8px;margin-top:1rem">
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.__mothApp.shareMoth('${m.id}');window.__mothApp.closeModal()"><span class="icon">${ICONS.link}</span>Share this moth</button>
+        <div class="modal-actions">
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.__mothApp.shareMoth('${m.id}');window.__mothApp.closeModal()">
+            <span class="icon">${ICONS.link}</span>Share
+          </button>
           <button class="btn btn-sm" onclick="window.__mothApp.closeModal()">Close</button>
         </div>
       </div>
