@@ -8,17 +8,19 @@ import { fetchEcoregionAtPoint, fetchNeighboringEcoregions } from './ecoregion.j
 import { geocodeText, reverseGeocode, getBrowserLocation } from './geo.js';
 import { loadSavedLocation, saveLocation } from './storage.js';
 import { selectHour } from './ui/timeline.js';
-import { renderMoths } from './ui/moths.js';
-import { openModal, closeModal } from './ui/modal.js';
+import { renderMoths, setViewMode } from './ui/moths.js';
+import { openModal, closeModal, swapModalPhoto } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
+import { openScoreSheet, closeScoreSheet } from './ui/conditions.js';
+import { onExploreActivated, setExploreRadius, searchExplore, closeExploreSheet, filterForecastToRegion, drillDeeper, drillBack } from './ui/explore.js';
 import { initMap, placeMarker, setEcoregionLayers, invalidateMapSize } from './map.js';
 import { getCache, setCache, getCacheAge, getCacheStale } from './cache.js';
 import { addSighting, removeSighting, removeSightingBySpec, getSightingsByDate, hasSighting, getTonightCount } from './sightings.js';
 
 const FALLBACK_RADIUS_KM = 100;
 let _sheetOpen = false;
-let _drawerOpen = false;
 let _moonPanelOpen = false;
+let _filtersSheetOpen = false;
 let _sheetMapInited = false;
 let _neighbors = [];
 let _myListDateKey = null; // null = date list view; YYYY-MM-DD string = detail view
@@ -27,26 +29,41 @@ window.__mothApp = {
   selectHour,
   openModal,
   closeModal,
+  swapModalPhoto,
+  openScoreSheet,
+  closeScoreSheet,
   showToast,
   renderMoths,
+  setViewMode,
   handleImgError: img => {
-    const c = img.closest('.species-photo,.modal-img');
+    const c = img.closest('.species-photo-top,.species-thumb,.modal-img');
     if (c) c.innerHTML = `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
   },
   shareMoth,
   searchByText,
   geoLocate,
   toggleLocationSheet,
-  toggleDrawer,
   toggleMoonPanel,
   switchTab,
   toggleTheme,
+  openFiltersSheet: () => openFiltersSheet(),
+  closeFiltersSheet: () => closeFiltersSheet(),
+  applyFilters: () => applyFilters(),
+  resetFilters: () => resetFilters(),
+  setSortSeg: btn => setSortSeg(btn),
   openLightbox,
   logSighting,
   removeSighting: id => { removeSighting(id); renderMyList(); updateMyListBadge(); },
   openMyListDate: key => renderMyListDetail(key),
   closeMyListDetail: () => renderMyListDates(),
   openInatObs,
+  setExploreRadius: btn => setExploreRadius(btn),
+  searchExplore: () => searchExplore(),
+  closeExploreSheet: () => closeExploreSheet(),
+  filterForecastToRegion: () => filterForecastToRegion(),
+  drillDeeper: () => drillDeeper(),
+  drillBack: () => drillBack(),
+  jumpToEcoregion: eco => jumpToEcoregion(eco),
   _switchNeighbor: idx => { const n = _neighbors[idx]; if (n) onNeighborClick(n.code, n.feature); },
   ICONS,
   get _state() { return state; },
@@ -106,22 +123,96 @@ function showSkeletons() {
 
 // ─── Tab switching ──────────────────────────────────────────────
 function switchTab(tab) {
-  const tabs = ['forecast','identify','mylist','settings'];
+  const tabs = ['forecast','identify','mylist','settings','explore'];
   for (const t of tabs) {
     const p = document.getElementById(`tab-${t}`);
     if (p) p.classList.toggle('active', t === tab);
     const d = document.getElementById(`di-${t}`);
     if (d) d.classList.toggle('active', t === tab);
+    const b = document.getElementById(`bn-${t}`);
+    if (b) b.classList.toggle('active', t === tab);
   }
   if (tab === 'mylist') renderMyList();
-  if (_drawerOpen) toggleDrawer();
+  if (tab === 'explore') onExploreActivated();
 }
 
-// ─── Drawer ────────────────────────────────────────────────────
-function toggleDrawer() {
-  _drawerOpen = !_drawerOpen;
-  document.getElementById('drawer').classList.toggle('open', _drawerOpen);
-  document.getElementById('drawer-backdrop').classList.toggle('open', _drawerOpen);
+// ─── Filters sheet ─────────────────────────────────────────────
+function openFiltersSheet() {
+  _filtersSheetOpen = true;
+  document.getElementById('filters-sheet').style.display = 'block';
+  document.getElementById('filters-sheet-backdrop').style.display = 'block';
+}
+
+function closeFiltersSheet() {
+  _filtersSheetOpen = false;
+  document.getElementById('filters-sheet').style.display = 'none';
+  document.getElementById('filters-sheet-backdrop').style.display = 'none';
+}
+
+function applyFilters() {
+  renderMoths();
+  updateFiltersBadge();
+  closeFiltersSheet();
+}
+
+function resetFilters() {
+  document.querySelectorAll('#sort-seg .filter-seg-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  const sortSel = document.getElementById('sort-sel');
+  if (sortSel) sortSel.value = 'score';
+  const habitatSel = document.getElementById('habitat-sel');
+  if (habitatSel) habitatSel.value = '';
+  const freqSel = document.getElementById('freq-sel');
+  if (freqSel) freqSel.value = '';
+  updateFiltersBadge();
+  renderMoths();
+  closeFiltersSheet();
+}
+
+function setSortSeg(btn) {
+  document.querySelectorAll('#sort-seg .filter-seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sortSel = document.getElementById('sort-sel');
+  if (sortSel) sortSel.value = btn.dataset.value;
+  updateFiltersBadge();
+}
+
+function updateFiltersBadge() {
+  const sortVal = document.getElementById('sort-sel')?.value;
+  const habitatVal = document.getElementById('habitat-sel')?.value;
+  const freqVal = document.getElementById('freq-sel')?.value;
+  const ecoActive = document.getElementById('eco-sel')?.classList.contains('neighbor-active');
+  const active = sortVal !== 'score' || !!habitatVal || !!freqVal || ecoActive;
+  document.getElementById('filters-btn')?.classList.toggle('active', active);
+}
+
+function initFiltersSheetSwipe() {
+  const sheet = document.getElementById('filters-sheet');
+  let startY = 0;
+  let swipeDelta = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    swipeDelta = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    const d = e.touches[0].clientY - startY;
+    if (d > 0 && sheet.scrollTop === 0) {
+      swipeDelta = d;
+      sheet.style.transform = `translateY(${d}px)`;
+    }
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    sheet.style.transition = '';
+    if (swipeDelta > 100) {
+      sheet.style.transform = 'translateY(110%)';
+      setTimeout(() => { sheet.style.transform = ''; closeFiltersSheet(); }, 220);
+    } else {
+      sheet.style.transform = '';
+    }
+  });
 }
 
 // ─── Moon panel ────────────────────────────────────────────────
@@ -223,23 +314,14 @@ function syncModalLogBtn(speciesId) {
   if (!btn) return;
   const m = state.allMoths.find(x => String(x.id) === String(speciesId));
   const logged = m ? hasSighting(m.sci) : false;
-  if (logged) {
-    btn.className = 'btn btn-sm btn-logged';
-    btn.innerHTML = `<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Logged`;
-  } else {
-    btn.className = 'btn btn-primary btn-sm';
-    btn.innerHTML = `<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>Log sighting`;
-  }
-  btn.style.flex = '1';
+  btn.className = logged ? 'btn btn-logged modal-log-btn' : 'btn btn-primary modal-log-btn';
+  btn.textContent = logged ? '✓ Logged' : '+ Log Sighting';
 }
 
 function updateMyListBadge() {
   const count = Object.keys(getSightingsByDate()).length;
   const badge = document.getElementById('mylist-badge');
-  if (badge) {
-    badge.textContent = count > 0 ? count : '';
-    badge.style.display = count > 0 ? 'inline-flex' : 'none';
-  }
+  if (badge) badge.style.display = count > 0 ? 'block' : 'none';
 }
 
 // ─── My List ──────────────────────────────────────────────────
@@ -446,6 +528,7 @@ function updateEcoSelect(eco, neighbors) {
   sel.disabled = false;
   sel.value = 'current';
   sel.classList.remove('neighbor-active');
+  updateFiltersBadge();
 }
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -453,10 +536,11 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 document.getElementById('eco-sel').addEventListener('change', function() {
   if (this.value === 'current') {
     this.classList.remove('neighbor-active');
+    updateFiltersBadge();
     if (state.ecoregion) onNeighborClick(state.ecoregion.code, state.ecoregion.feature);
   } else {
     const n = _neighbors[parseInt(this.value.replace('n',''),10)];
-    if (n) { this.classList.add('neighbor-active'); onNeighborClick(n.code, n.feature); }
+    if (n) { this.classList.add('neighbor-active'); updateFiltersBadge(); onNeighborClick(n.code, n.feature); }
   }
 });
 
@@ -473,7 +557,7 @@ async function onNeighborClick(code, feature) {
   document.getElementById('conditions-section').style.display = 'none';
 
   const [mothData, neighbors] = await Promise.all([
-    fetchAllSpeciesWithCache(state.currentLat, state.currentLng, { bbox: eco.bbox }),
+    fetchSpeciesForEco(eco),
     fetchNeighboringEcoregions(eco.bbox, eco.code),
   ]);
   updateEcoSelect(eco, neighbors);
@@ -496,6 +580,45 @@ function getBboxFromFeature(feature) {
     swlat: Math.min(...pts.map(p=>p[1])), swlng: Math.min(...pts.map(p=>p[0])),
     nelat: Math.max(...pts.map(p=>p[1])), nelng: Math.max(...pts.map(p=>p[0])),
   };
+}
+
+// ─── Species fetch with cache ─────────────────────────────────
+async function fetchSpeciesForEco(ecoObj) {
+  const sk = speciesKey({ bbox: ecoObj.bbox, _lat: state.currentLat, _lng: state.currentLng });
+  let data = getCache('species', sk);
+  if (!data) {
+    data = await fetchAllSpecies(state.currentLat, state.currentLng, { bbox: ecoObj.bbox });
+    if (data?.length) setCache('species', sk, data);
+  }
+  return data;
+}
+
+// Switches to Forecast tab and loads species for the given ecoregion.
+// Called from the Explore tab "Filter Forecast to this region" action.
+async function jumpToEcoregion(ecoObj) {
+  state.ecoregion = ecoObj;
+  switchTab('forecast');
+  setLocationLabel(ecoObj.name);
+  setStatus(`Loading species for ${ecoObj.name}…`);
+  showSkeletons();
+  document.getElementById('conditions-section').style.display = 'none';
+
+  const [mothData, neighbors] = await Promise.all([
+    fetchSpeciesForEco(ecoObj),
+    fetchNeighboringEcoregions(ecoObj.bbox, ecoObj.code),
+  ]);
+  updateEcoSelect(ecoObj, neighbors);
+  document.getElementById('conditions-section').style.display = 'block';
+
+  if (!mothData?.length) {
+    setStatus(`No moth records in ${ecoObj.name} for this time of year.`);
+    document.getElementById('results').innerHTML =
+      `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No records found.</div>`;
+    return;
+  }
+  state.allMoths = mothData;
+  setStatus('');
+  renderMoths();
 }
 
 // ─── Cache helpers ────────────────────────────────────────────
@@ -700,20 +823,14 @@ document.getElementById('icon-chevleft').innerHTML = DBLCHEV_L;
 document.getElementById('icon-chevright').innerHTML = DBLCHEV_R;
 document.getElementById('icon-star-badge').innerHTML = ICONS.star;
 
-// Drawer icons
-const HEART_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
-const GEAR_SVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-const MAGNIFY_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
-document.getElementById('di-icon-forecast').innerHTML = ICONS.moon;
-document.getElementById('di-icon-identify').innerHTML = MAGNIFY_SVG;
-document.getElementById('di-icon-mylist').innerHTML = HEART_SVG;
-document.getElementById('di-icon-settings').innerHTML = GEAR_SVG;
-
 document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchByText(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeModal(); toggleLocationSheet(false); if (_drawerOpen) toggleDrawer(); if (_moonPanelOpen) toggleMoonPanel(); }
+  if (e.key === 'Escape') {
+    closeModal(); toggleLocationSheet(false);
+    if (_filtersSheetOpen) closeFiltersSheet();
+    if (_moonPanelOpen) toggleMoonPanel();
+  }
 });
-document.querySelectorAll('#sort-sel,#freq-sel,#habitat-sel').forEach(el => el.addEventListener('change', () => renderMoths()));
 
 // ─── Location sheet swipe-down dismiss ────────────────────────
 function initLocationSheetSwipe() {
@@ -756,13 +873,15 @@ function initBackButton() {
   window.addEventListener('backButton', () => {
     // Dismiss the most transient overlay first, then navigate up the hierarchy.
     if (_sheetOpen)                               { toggleLocationSheet(false); return; }
+    if (_filtersSheetOpen)                        { closeFiltersSheet();        return; }
     if (_moonPanelOpen)                           { toggleMoonPanel();          return; }
     if (document.querySelector('.modal-overlay')) { closeModal();               return; }
-    if (_drawerOpen)                              { toggleDrawer();             return; }
     if (_myListDateKey)                           { renderMyListDates();        return; }
 
+    if (document.getElementById('explore-region-sheet')?.style.display !== 'none') { closeExploreSheet(); return; }
+
     // Non-forecast tab → return to forecast
-    const nonForecastActive = ['identify', 'mylist', 'settings'].some(t =>
+    const nonForecastActive = ['identify', 'mylist', 'settings', 'explore'].some(t =>
       document.getElementById(`tab-${t}`)?.classList.contains('active')
     );
     if (nonForecastActive) { switchTab('forecast'); return; }
@@ -801,6 +920,7 @@ function initSafeArea() {
 }
 initSafeArea();
 initLocationSheetSwipe();
+initFiltersSheetSwipe();
 initBackButton();
 
 initTheme();

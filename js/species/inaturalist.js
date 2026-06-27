@@ -39,3 +39,26 @@ export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}) {
     }).filter(m => m.id);
   } catch(e) { return null; }
 }
+
+export async function fetchInatTaxonPhotos(taxonId) {
+  try {
+    const res = await fetch(`${INATURALIST_API}/taxa/${taxonId}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const taxon = (data.results || [])[0];
+    if (!taxon) return [];
+    return (taxon.taxon_photos || [])
+      .slice(0, 4)
+      .map(tp => {
+        const p = tp.photo || {};
+        return {
+          url: p.medium_url || p.url || p.square_url || null,
+          squareUrl: p.square_url || p.medium_url || null,
+          attribution: p.attribution || '',
+          licenseCode: p.license_code || '',
+          pageUrl: `https://www.inaturalist.org/taxa/${taxonId}`,
+        };
+      })
+      .filter(p => p.url);
+  } catch(e) { return []; }
+}

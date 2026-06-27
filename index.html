@@ -17,9 +17,6 @@
 <!-- Top bar -->
 <header class="top-bar">
   <div class="top-bar-left">
-    <button class="hamburger-btn" id="hamburger-btn" onclick="window.__mothApp.toggleDrawer()" aria-label="Menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
     <button class="home-btn" onclick="window.__mothApp.switchTab('forecast')" aria-label="Forecast home">
       <span class="icon icon-md" id="header-moon-icon" style="color:var(--moon)" aria-hidden="true"></span>
       <span class="app-name">Moth Lite</span>
@@ -28,7 +25,7 @@
   <div class="top-bar-right">
     <button class="location-btn" id="location-toggle-btn" onclick="window.__mothApp.toggleLocationSheet()">
       <span id="location-label">Detecting location…</span>
-      <span class="icon icon-sm" style="color:var(--muted)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      <span class="icon icon-sm" style="color:var(--muted)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
     </button>
   </div>
 </header>
@@ -39,7 +36,7 @@
   <div class="sheet-handle"></div>
   <div class="moon-panel-header">
     <span class="moon-panel-title">Moon</span>
-    <button class="drawer-close" onclick="window.__mothApp.toggleMoonPanel()">
+    <button class="sheet-close" onclick="window.__mothApp.toggleMoonPanel()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
@@ -51,49 +48,66 @@
 <!-- Location sheet backdrop -->
 <div class="sheet-backdrop" id="sheet-backdrop" onclick="window.__mothApp.toggleLocationSheet()" style="display:none"></div>
 
-<!-- Drawer backdrop -->
-<div class="drawer-backdrop" id="drawer-backdrop" onclick="window.__mothApp.toggleDrawer()"></div>
+<!-- Filters sheet backdrop -->
+<div class="sheet-backdrop" id="filters-sheet-backdrop" onclick="window.__mothApp.closeFiltersSheet()" style="display:none"></div>
 
-<!-- Drawer -->
-<nav class="drawer" id="drawer">
-  <div class="drawer-header">
-    <span class="drawer-title">Menu</span>
-    <button class="drawer-close" onclick="window.__mothApp.toggleDrawer()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+<!-- Filters sheet -->
+<div class="filters-sheet" id="filters-sheet" style="display:none">
+  <div class="sheet-handle"></div>
+  <div class="filters-sheet-head">
+    <span class="filters-sheet-title">Filters</span>
+    <button class="sheet-close" onclick="window.__mothApp.closeFiltersSheet()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
-  <div class="drawer-toggle-section">
-    <div class="theme-toggle-row">
-      <div class="theme-toggle-label">
-        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
-        <span id="theme-label">Dark mode</span>
+  <div class="filters-sheet-body">
+    <div class="filter-group">
+      <label class="filter-group-label">Ecoregion</label>
+      <select id="eco-sel" disabled>
+        <option value="current">Detecting ecoregion…</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-group-label">Sort By</label>
+      <div class="filter-seg" id="sort-seg">
+        <button class="filter-seg-btn active" data-value="score" onclick="window.__mothApp.setSortSeg(this)">Likelihood</button>
+        <button class="filter-seg-btn" data-value="count" onclick="window.__mothApp.setSortSeg(this)">Most observed</button>
+        <button class="filter-seg-btn" data-value="alpha" onclick="window.__mothApp.setSortSeg(this)">Name A–Z</button>
       </div>
-      <label class="toggle-switch" aria-label="Toggle theme">
-        <input type="checkbox" id="theme-toggle" onchange="window.__mothApp.toggleTheme()">
-        <span class="toggle-track"></span>
-      </label>
+      <select id="sort-sel" style="display:none">
+        <option value="score">Likelihood</option>
+        <option value="count">Most observed</option>
+        <option value="alpha">Name A–Z</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-group-label">Habitat</label>
+      <select id="habitat-sel">
+        <option value="">All habitats</option>
+        <option value="forest">Forest</option>
+        <option value="wetland">Wetland</option>
+        <option value="grassland">Grassland</option>
+        <option value="shrubland">Shrubland</option>
+        <option value="farmland">Farmland</option>
+        <option value="urban">Urban</option>
+        <option value="coastal">Coastal</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-group-label">Rarity</label>
+      <select id="freq-sel">
+        <option value="">All</option>
+        <option value="common">Common</option>
+        <option value="occasional">Occasional</option>
+        <option value="rare">Rare</option>
+      </select>
     </div>
   </div>
-  <div class="drawer-items">
-    <button class="drawer-item active" id="di-forecast" onclick="window.__mothApp.switchTab('forecast')">
-      <span class="drawer-item-icon" id="di-icon-forecast"></span>
-      Forecast
-    </button>
-    <button class="drawer-item" id="di-identify" onclick="window.__mothApp.switchTab('identify')">
-      <span class="drawer-item-icon" id="di-icon-identify"></span>
-      Identify
-    </button>
-    <button class="drawer-item" id="di-mylist" onclick="window.__mothApp.switchTab('mylist')">
-      <span class="drawer-item-icon" id="di-icon-mylist"></span>
-      My List
-      <span class="drawer-badge" id="mylist-badge" style="display:none"></span>
-    </button>
-    <button class="drawer-item" id="di-settings" onclick="window.__mothApp.switchTab('settings')">
-      <span class="drawer-item-icon" id="di-icon-settings"></span>
-      Settings
-    </button>
+  <div class="filters-sheet-footer">
+    <button class="btn" onclick="window.__mothApp.resetFilters()">Reset</button>
+    <button class="btn btn-primary" style="flex:1" onclick="window.__mothApp.applyFilters()">Apply</button>
   </div>
-</nav>
+</div>
 
 <!-- Location sheet -->
 <div class="location-sheet" id="location-sheet" style="display:none">
@@ -139,57 +153,37 @@
 
   <!-- Conditions hero -->
   <div id="conditions-section" style="display:none">
-    <div class="likelihood-banner" id="likelihood-banner">
+    <div class="likelihood-banner" id="likelihood-banner" onclick="window.__mothApp.openScoreSheet()" style="cursor:pointer">
       <div class="likelihood-left">
         <h2 id="likelihood-label">—</h2>
         <p id="likelihood-desc"></p>
       </div>
       <div class="likelihood-score" id="likelihood-score">—</div>
     </div>
-    <div class="conditions" id="conditions-grid"></div>
     <div id="habitat-strip-container"></div>
-    <div class="data-note">
-      Forecast: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> ·
-      Ecoregions: <a href="https://www.epa.gov/eco-research/ecoregions" target="_blank" rel="noopener noreferrer">EPA Level IV</a> ·
-      Habitat: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OSM</a> ·
-      Species: <a href="https://www.inaturalist.org" target="_blank" rel="noopener noreferrer">iNaturalist</a> &amp; <a href="https://www.gbif.org" target="_blank" rel="noopener noreferrer">GBIF</a>
-    </div>
   </div>
 
   <!-- Species controls + list -->
   <div id="controls-section" style="display:none">
-    <div class="list-header">
-      <div class="list-header-top">
-        <div class="result-count-wrap">
-          <span class="result-count" id="result-count"></span>
-          <span class="cache-age-note" id="cache-age-note" style="display:none"></span>
-        </div>
-        <select id="eco-sel" disabled>
-          <option value="current">Detecting ecoregion…</option>
-        </select>
+    <div class="controls-row">
+      <div class="count-block">
+        <span class="result-count" id="result-count"></span>
+        <span class="cache-age-note" id="cache-age-note" style="display:none"></span>
       </div>
-      <div class="filter-row">
-        <select id="sort-sel">
-          <option value="score">Likelihood</option>
-          <option value="count">Most observed</option>
-          <option value="alpha">Name A–Z</option>
-        </select>
-        <select id="habitat-sel">
-          <option value="">Habitats</option>
-          <option value="forest">Forest</option>
-          <option value="wetland">Wetland</option>
-          <option value="grassland">Grassland</option>
-          <option value="shrubland">Shrubland</option>
-          <option value="farmland">Farmland</option>
-          <option value="urban">Urban</option>
-          <option value="coastal">Coastal</option>
-        </select>
-        <select id="freq-sel">
-          <option value="">Rarity</option>
-          <option value="common">Common</option>
-          <option value="occasional">Occasional</option>
-          <option value="rare">Rare</option>
-        </select>
+      <div class="controls-right">
+        <button class="filters-btn" id="filters-btn" onclick="window.__mothApp.openFiltersSheet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filters
+          <span class="filters-badge" id="filters-badge"></span>
+        </button>
+        <div class="view-mode-toggle">
+          <button class="view-mode-btn active" id="view-btn-list" onclick="window.__mothApp.setViewMode('list')" title="List view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button class="view-mode-btn" id="view-btn-grid" onclick="window.__mothApp.setViewMode('grid')" title="Grid view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+        </div>
       </div>
     </div>
     <div id="results"></div>
@@ -214,9 +208,50 @@
   <div id="mylist-content"></div>
 </div>
 
+<!-- Explore tab -->
+<div id="tab-explore" class="tab-pane">
+  <div class="explore-bar">
+    <div class="explore-search-row">
+      <input type="text" id="explore-search" placeholder="Search location…" autocomplete="off" autocorrect="off">
+      <button class="btn btn-primary explore-search-btn" id="explore-search-btn" onclick="window.__mothApp.searchExplore()">Go</button>
+    </div>
+    <div class="explore-radius-row">
+      <button class="radius-pill" data-miles="100" onclick="window.__mothApp.setExploreRadius(this)">100 mi</button>
+      <button class="radius-pill active" data-miles="300" onclick="window.__mothApp.setExploreRadius(this)">300 mi</button>
+      <button class="radius-pill" data-miles="500" onclick="window.__mothApp.setExploreRadius(this)">500 mi</button>
+    </div>
+  </div>
+  <div id="explore-map-wrap">
+    <div id="explore-map"></div>
+    <div class="explore-offline-overlay" id="explore-offline-overlay" style="display:none">
+      <span>Map unavailable offline</span>
+    </div>
+    <button class="explore-back-btn" id="explore-back-btn" style="display:none" onclick="window.__mothApp.drillBack()">
+      ← Back
+    </button>
+  </div>
+</div>
+
 <!-- Settings tab -->
 <div id="tab-settings" class="tab-pane">
   <div class="settings-page">
+
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span class="settings-row-label settings-row-label--icon">
+            <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+            <span id="theme-label">Dark mode</span>
+          </span>
+          <label class="toggle-switch" aria-label="Toggle theme">
+            <input type="checkbox" id="theme-toggle" onchange="window.__mothApp.toggleTheme()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-section">
       <div class="settings-section-title">About</div>
       <div class="settings-card">
@@ -263,7 +298,39 @@
         <div class="settings-row"><span class="settings-row-label">Maps &amp; habitat</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="settings-row-link">© OpenStreetMap</a></div>
       </div>
     </div>
+
   </div>
+</div>
+
+<nav id="bottom-nav">
+  <button class="bn-btn active" id="bn-forecast" onclick="window.__mothApp.switchTab('forecast')" aria-label="Forecast">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+    <span class="bn-label">Forecast</span>
+  </button>
+  <button class="bn-btn" id="bn-mylist" onclick="window.__mothApp.switchTab('mylist')" aria-label="My List">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    <span class="bn-label">My List</span>
+    <span class="bn-badge" id="mylist-badge" style="display:none"></span>
+  </button>
+  <button class="bn-btn" id="bn-identify" onclick="window.__mothApp.switchTab('identify')" aria-label="Identify">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <span class="bn-label">Identify</span>
+  </button>
+  <button class="bn-btn" id="bn-settings" onclick="window.__mothApp.switchTab('settings')" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="bn-label">Settings</span>
+  </button>
+  <button class="bn-btn" id="bn-explore" onclick="window.__mothApp.switchTab('explore')" aria-label="Explore">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+    <span class="bn-label">Explore</span>
+  </button>
+</nav>
+
+<!-- Explore region sheet backdrop + sheet -->
+<div class="sheet-backdrop" id="explore-sheet-backdrop" onclick="window.__mothApp.closeExploreSheet()" style="display:none"></div>
+<div class="explore-region-sheet" id="explore-region-sheet" style="display:none">
+  <div class="sheet-handle"></div>
+  <div id="explore-sheet-content"></div>
 </div>
 
 <div class="toast" id="toast"></div>

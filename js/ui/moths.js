@@ -1,9 +1,26 @@
 import { state } from '../state.js';
 import { ICONS } from '../icons.js';
-import { escapeHTML, attr, photoCreditText, estimateSeasonMonths } from '../utils.js';
+import { escapeHTML, attr } from '../utils.js';
 import { calcMothScore } from '../scoring.js';
 import { lookupAffinity } from '../data/habitat-affinities.js';
 import { hasSighting } from '../sightings.js';
+
+const VIEW_MODE_KEY = 'moth-view-mode';
+
+function getViewMode() {
+  return localStorage.getItem(VIEW_MODE_KEY) || 'list';
+}
+
+export function setViewMode(mode) {
+  localStorage.setItem(VIEW_MODE_KEY, mode);
+  syncToggleButtons(mode);
+  renderMoths();
+}
+
+function syncToggleButtons(mode) {
+  document.getElementById('view-btn-list')?.classList.toggle('active', mode === 'list');
+  document.getElementById('view-btn-grid')?.classList.toggle('active', mode === 'grid');
+}
 
 export function renderMoths() {
   const sort = document.getElementById('sort-sel').value;
@@ -28,6 +45,9 @@ export function renderMoths() {
   else if (sort === 'count') moths.sort((a, b) => b.count - a.count);
   else moths.sort((a, b) => a.name.localeCompare(b.name));
 
+  const mode = getViewMode();
+  syncToggleButtons(mode);
+
   document.getElementById('result-count').textContent = `${moths.length} species`;
   const r = document.getElementById('results');
   if (!moths.length) {
@@ -35,17 +55,32 @@ export function renderMoths() {
     return;
   }
 
-  r.innerHTML = '<div class="species-list">' + moths.map(m => renderCard(m, currentMonth)).join('') + '</div>';
+  const listClass = mode === 'grid' ? 'species-list species-list--grid' : 'species-list';
+  r.innerHTML = `<div class="${listClass}">` + moths.map(m => renderCard(m, currentMonth, mode)).join('') + '</div>';
 }
 
-function renderCard(m, currentMonth) {
+function renderCard(m, currentMonth, mode) {
   const affinities = lookupAffinity(m);
   const scoreClass = m.flightScore >= 65 ? 'score-good' : m.flightScore >= 40 ? 'score-fair' : 'score-poor';
-  const credit = photoCreditText(m) ? `<div class="species-credit">${escapeHTML(photoCreditText(m))}</div>` : '';
-  const photoHTML = m.photo?.url
-    ? `<img src="${attr(m.photo.url)}" alt="${attr(m.name)}" loading="lazy" onerror="window.__mothApp.handleImgError(this)">${credit}`
+
+  const photoInner = m.photo?.url
+    ? `<img src="${attr(m.photo.url)}" alt="${attr(m.name)}" loading="lazy" onerror="window.__mothApp.handleImgError(this)">`
     : `<span class="moth-silhouette">${ICONS.mothSilhouette}</span>`;
 
+  if (mode === 'grid') {
+    return `<div class="species-card species-card--grid" onclick="window.__mothApp.openModal('${m.id}')">
+      <div class="species-photo-top">${photoInner}</div>
+      <div class="species-grid-body">
+        <div class="species-common">${escapeHTML(m.name)}</div>
+        <div class="species-sci">${escapeHTML(m.sci)}</div>
+        <div class="species-grid-score">
+          <span class="species-score ${scoreClass}">${m.flightScore}</span><span class="species-score-pct">%</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // List mode
   const habitatTags = affinities.slice(0, 2).map(a => `<span class="habitat-tag">${escapeHTML(a)}</span>`).join('');
   const freqTag = m.count > 100
     ? '<span class="freq-tag freq-common">Common</span>'
@@ -65,8 +100,8 @@ function renderCard(m, currentMonth) {
   const inatId = m.inatId || (m.source !== 'gbif' ? m.id : null);
   const inatBtn = inatId ? `<button class="card-inat-btn" onclick="event.stopPropagation();window.__mothApp.openInatObs('${inatId}','${attr(m.sci)}')" title="Log on iNaturalist">iNat ↗</button>` : '';
 
-  return `<div class="species-card" onclick="window.__mothApp.openModal('${m.id}')">
-    <div class="species-photo">${photoHTML}</div>
+  return `<div class="species-card species-card--list" onclick="window.__mothApp.openModal('${m.id}')">
+    <div class="species-thumb">${photoInner}</div>
     <div class="species-info">
       <div class="species-common">${escapeHTML(m.name)}</div>
       <div class="species-sci">${escapeHTML(m.sci)}</div>

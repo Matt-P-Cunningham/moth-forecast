@@ -47,3 +47,106 @@
   border-color:var(--accent-dim);
   color:var(--accent-text);
 }
+
+/* ─── Explore tab ─────────────────────────────────────────────── */
+/* Full-height layout — overrides generic .tab-pane padding */
+#tab-explore.active{
+  display:flex;
+  flex-direction:column;
+  padding:0;
+  overflow:hidden;
+  height:calc(100vh - var(--bar-h) - var(--status-bar-height));
+}
+
+.explore-bar{
+  flex-shrink:0;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:8px 12px;
+  display:flex;flex-direction:column;gap:7px;
+  z-index:10;
+}
+.explore-search-row{display:flex;gap:8px;align-items:center}
+#explore-search{
+  flex:1;height:36px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  font-size:14px;font-family:inherit;
+  padding:0 12px;outline:none;
+}
+#explore-search:focus{border-color:var(--accent-dim)}
+#explore-search:disabled{opacity:0.5}
+.explore-search-btn{height:36px;padding:0 14px;font-size:13px;flex-shrink:0}
+
+.explore-radius-row{display:flex;gap:6px}
+.radius-pill{
+  flex:1;height:28px;
+  border-radius:99px;
+  border:1px solid var(--border2);
+  background:none;
+  color:var(--muted);
+  font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.radius-pill.active{
+  background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-dim);
+}
+
+/* Map fill remaining space */
+#explore-map-wrap{
+  flex:1;position:relative;min-height:0;
+}
+#explore-map{position:absolute;inset:0}
+
+/* CartoDB dark tiles need no extra dimming — remove brightness filter for explore map */
+#explore-map .leaflet-tile-pane{filter:none}
+
+.explore-offline-overlay{
+  position:absolute;inset:0;z-index:500;
+  background:rgba(0,0,0,0.72);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;color:var(--muted);
+  pointer-events:none;
+}
+
+.explore-back-btn{
+  position:absolute;top:12px;left:12px;z-index:500;
+  height:34px;padding:0 16px;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  color:var(--text);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+
+/* ─── Explore region bottom sheet ────────────────────────────── */
+.explore-region-sheet{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--surface);
+  border-radius:12px 12px 0 0;
+  z-index:1200;
+  max-height:55vh;overflow-y:auto;
+  padding-bottom:calc(var(--nav-bar-height) + 16px);
+  box-shadow:0 -8px 40px rgba(0,0,0,.6);
+  animation:slideUp .25s ease;
+}
+.explore-sheet-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:4px 16px 10px;gap:12px;
+}
+.explore-sheet-name-block{flex:1;min-width:0}
+.explore-sheet-name{font-size:18px;font-weight:700;color:var(--text);line-height:1.3}
+.explore-sheet-code{
+  font-size:11px;color:var(--muted);font-family:monospace;margin-top:2px;letter-spacing:0.03em;
+}
+.explore-sheet-desc{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.4}
+.explore-sheet-species{
+  font-size:14px;font-weight:700;color:var(--accent-text);
+  padding:6px 16px 10px;border-top:1px solid var(--border);
+}
+.explore-sheet-actions{
+  display:flex;flex-direction:column;gap:8px;padding:0 16px 4px;
+}

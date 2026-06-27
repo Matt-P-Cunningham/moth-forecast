@@ -30,22 +30,13 @@
   color:var(--text);
   font-size:13px;
   cursor:pointer;
-  max-width:180px;
+  max-width:calc(100vw - 140px);
   font-family:inherit;
   font-weight:500;
   transition:background .15s,border-color .15s;
 }
 .location-btn:hover{background:rgba(255,255,255,0.13);border-color:var(--accent)}
-#location-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-.hamburger-btn{
-  width:40px;height:40px;
-  display:flex;align-items:center;justify-content:center;
-  background:none;border:none;color:var(--text);cursor:pointer;
-  border-radius:var(--radius-sm);flex-shrink:0;
-}
-.hamburger-btn:hover{background:rgba(255,255,255,0.08)}
-.hamburger-btn svg{width:22px;height:22px}
+#location-label{font-size:12px;white-space:nowrap}
 
 /* ─── Main scroll area ───────────────────────────────────────── */
 /* Hard bottom floor — exact Android nav-bar height injected by MainActivity */
@@ -54,8 +45,8 @@ html,body{padding-bottom:var(--nav-bar-height)}
 main{
   /* Push below the top bar (which now includes safe area) */
   margin-top:calc(var(--bar-h) + var(--status-bar-height));
-  /* Extra breathing room above the nav-bar padding on html/body */
-  padding-bottom:24px;
+  /* Clear the fixed bottom nav (56px) plus gesture area */
+  padding-bottom:calc(56px + env(safe-area-inset-bottom, 12px));
   padding-left:var(--sal);
   padding-right:var(--sar);
 }
@@ -66,7 +57,7 @@ main{
 /* Sibling tab panes (identify / mylist / settings) need the same top offset as <main> */
 .tab-pane:not(main){
   margin-top:calc(var(--bar-h) + var(--status-bar-height));
-  padding-bottom:24px;
+  padding-bottom:calc(56px + env(safe-area-inset-bottom, 12px));
   padding-left:var(--sal);
   padding-right:var(--sar);
 }
@@ -83,13 +74,13 @@ main{
 
 /* ─── Moon panel ─────────────────────────────────────────────── */
 .moon-panel-backdrop{
-  position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;animation:fadeIn .2s ease;
+  position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1100;animation:fadeIn .2s ease;
 }
 .moon-panel{
   position:fixed;bottom:0;left:0;right:0;
   background:var(--surface);
   border-radius:var(--radius-lg) var(--radius-lg) 0 0;
-  z-index:201;
+  z-index:1101;
   max-height:80vh;
   display:flex;flex-direction:column;
   transform:translateY(100%);
@@ -128,74 +119,13 @@ main{
 .moon-rise-set{font-size:11px;color:var(--text2);line-height:1.5}
 .moon-no-data{font-size:13px;color:var(--muted);text-align:center;padding:20px 0}
 
-/* ─── Drawer ─────────────────────────────────────────────────── */
-.drawer-backdrop{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,0.5);
-  z-index:300;
-  display:none;
-  animation:fadeIn .2s ease;
-}
-.drawer-backdrop.open{display:block}
-
-.drawer{
-  position:fixed;top:0;left:0;bottom:0;
-  width:min(280px,80vw);
-  background:var(--surface);
-  z-index:301;
-  transform:translateX(-100%);
-  transition:transform .28s ease;
-  display:flex;flex-direction:column;
-  padding-top:var(--status-bar-height);
-  padding-bottom:var(--nav-bar-height);
-  box-shadow:8px 0 32px rgba(0,0,0,0.5);
-}
-.drawer.open{transform:translateX(0)}
-
-.drawer-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:16px 20px;
-  border-bottom:1px solid var(--border);
-  min-height:var(--bar-h);
-}
-.drawer-title{font-size:16px;font-weight:700;color:var(--text)}
-.drawer-close{
+/* ─── Sheet close button (shared by moon panel, score sheet, filters sheet) ── */
+.sheet-close,.drawer-close{
   width:36px;height:36px;border-radius:50%;
   border:none;background:none;color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
 }
-.drawer-close svg{width:18px;height:18px}
-
-.drawer-items{flex:1;padding:8px 0;overflow-y:auto}
-.drawer-item{
-  width:100%;display:flex;align-items:center;gap:14px;
-  padding:16px 24px;
-  background:none;border:none;
-  color:var(--text2);font-size:16px;font-weight:500;
-  cursor:pointer;text-align:left;font-family:inherit;
-  transition:background .12s,color .12s;
-  -webkit-tap-highlight-color:transparent;
-}
-.drawer-item:hover,.drawer-item.active{background:var(--accent-bg);color:var(--accent-text)}
-.drawer-item-icon{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0}
-.drawer-item-icon svg{width:100%;height:100%}
-
-/* ─── Drawer theme toggle (pinned below heading) ─────────────── */
-.drawer-toggle-section{
-  padding:14px 24px;
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
-}
-.theme-toggle-row{
-  display:flex;align-items:center;justify-content:space-between;
-  gap:12px;
-}
-.theme-toggle-label{
-  display:flex;align-items:center;gap:12px;
-  font-size:15px;font-weight:500;color:var(--text2);
-  flex:1;
-}
-.theme-toggle-label svg{width:20px;height:20px;flex-shrink:0;color:var(--muted)}
+.sheet-close svg,.drawer-close svg{width:18px;height:18px}
 
 /* Toggle switch */
 .toggle-switch{position:relative;cursor:pointer;flex-shrink:0}
@@ -226,7 +156,7 @@ main{
 .sheet-backdrop{
   position:fixed;inset:0;
   background:rgba(0,0,0,0.65);
-  z-index:200;
+  z-index:1100;
   backdrop-filter:blur(3px);
   -webkit-backdrop-filter:blur(3px);
   animation:fadeIn .2s ease;
@@ -240,7 +170,7 @@ main{
   border-radius:var(--radius-lg) var(--radius-lg) 0 0;
   /* Side padding adds sal/sar for notched/rounded-corner screens */
   padding:0 calc(20px + var(--sar)) calc(28px + var(--nav-bar-height)) calc(20px + var(--sal));
-  z-index:201;
+  z-index:1101;
   box-shadow:0 -8px 40px rgba(0,0,0,0.6);
   animation:slideUp .25s ease;
   transition:bottom .15s ease, transform .22s ease;
@@ -259,3 +189,30 @@ main{
 
 /* ─── Search (in location sheet) ─────────────────────────────── */
 .search-row{display:flex;gap:8px;margin-bottom:10px}
+
+/* ─── Bottom navigation bar ──────────────────────────────────── */
+#bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  height:calc(56px + env(safe-area-inset-bottom, 12px));
+  padding-bottom:env(safe-area-inset-bottom, 12px);
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  z-index:1000;
+  display:flex;
+  align-items:stretch;
+}
+.bn-btn{
+  flex:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;
+  background:none;border:none;
+  color:var(--muted);
+  cursor:pointer;font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+  transition:color .15s;
+  padding:0 4px;
+  min-width:0;
+}
+.bn-btn svg{width:22px;height:22px;flex-shrink:0}
+.bn-label{font-size:10px;font-weight:500;line-height:1;white-space:nowrap}
+.bn-btn.active{color:var(--accent)}
