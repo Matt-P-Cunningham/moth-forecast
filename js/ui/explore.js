@@ -4,7 +4,7 @@ import { escapeHTML } from '../utils.js';
 
 const EPA_L3 = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/11';
 const EPA_L4 = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/7';
-const DARK_TILES = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
+const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_matter_lite/{z}/{x}/{y}{r}.png';
 const MILES_TO_KM = 1.60934;
 const DEG_PER_MILE = 1 / 69.0;
 
@@ -23,11 +23,11 @@ const _l3Cache = new Map();
 const _l4Cache = new Map();
 
 // Layer styles (hardcoded for Leaflet — CSS vars not available in JS context)
-const S_CURRENT  = { color: '#54a668', weight: 2.5,  fillColor: '#4a7c59', fillOpacity: 0.28 };
-const S_NEIGHBOR = { color: 'rgba(84,166,104,0.4)', weight: 1,   fillColor: '#3a5a48', fillOpacity: 0.13 };
-const S_OUTSIDE  = { color: 'rgba(40,40,40,0.4)',   weight: 0.5, fillColor: '#111',    fillOpacity: 0.35 };
-const S_L4_BASE  = { color: 'rgba(84,166,104,0.5)', weight: 1.5, fillColor: '#3a6a50', fillOpacity: 0.18 };
-const S_L4_HOVER = { color: '#54a668',               weight: 2,   fillColor: '#4a7c59', fillOpacity: 0.32 };
+const S_CURRENT  = { color: 'rgba(84,166,104,0.8)', weight: 2,   fillColor: '#4a7c59', fillOpacity: 0.4  };
+const S_NEIGHBOR = { color: 'rgba(84,166,104,0.8)', weight: 2,   fillColor: '#3a5a48', fillOpacity: 0.25 };
+const S_OUTSIDE  = { color: 'rgba(40,40,40,0.8)',   weight: 0.5, fillColor: '#111',    fillOpacity: 0.35 };
+const S_L4_BASE  = { color: 'rgba(84,166,104,0.8)', weight: 2,   fillColor: '#3a6a50', fillOpacity: 0.25 };
+const S_L4_HOVER = { color: '#54a668',               weight: 2.5, fillColor: '#4a7c59', fillOpacity: 0.42 };
 
 const X_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
