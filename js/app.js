@@ -2,14 +2,14 @@ import { state } from './state.js';
 import { ICONS, moonPhaseSVG } from './icons.js';
 import { getMoonPhase } from './moon.js';
 import { fetchForecast, fetchMoonData, findNowIndex, findPeakIndex } from './forecast.js';
-import { fetchAllSpecies } from './species/index.js';
+import { fetchSpeciesPage, resetSpeciesPagination, clearGBIFCache } from './species/index.js';
 import { fetchHabitat } from './habitat/index.js';
 import { fetchEcoregionAtPoint, fetchNeighboringEcoregions } from './ecoregion.js';
 import { geocodeText, reverseGeocode, getBrowserLocation } from './geo.js';
 import { loadSavedLocation, saveLocation } from './storage.js';
 import { selectHour } from './ui/timeline.js';
 import { renderMoths, setViewMode } from './ui/moths.js';
-import { openModal, closeModal, swapModalPhoto } from './ui/modal.js';
+import { openModal, closeModal, switchPhoto, openPhotoLightbox } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
 import { openScoreSheet, closeScoreSheet } from './ui/conditions.js';
 import { onExploreActivated, setExploreRadius, searchExplore, closeExploreSheet, filterForecastToRegion, drillDeeper, drillBack } from './ui/explore.js';
@@ -24,12 +24,19 @@ let _filtersSheetOpen = false;
 let _sheetMapInited = false;
 let _neighbors = [];
 let _myListDateKey = null; // null = date list view; YYYY-MM-DD string = detail view
+let _lastSpeciesKey = null;
+let _cacheAgeTimer = null;
+// Species pagination
+let _speciesLoading = false;
+let _speciesSk = null;
+let _speciesOpts = null;
 
 window.__mothApp = {
   selectHour,
   openModal,
   closeModal,
-  swapModalPhoto,
+  switchPhoto,
+  openPhotoLightbox,
   openScoreSheet,
   closeScoreSheet,
   showToast,
@@ -65,6 +72,7 @@ window.__mothApp = {
   drillBack: () => drillBack(),
   jumpToEcoregion: eco => jumpToEcoregion(eco),
   _switchNeighbor: idx => { const n = _neighbors[idx]; if (n) onNeighborClick(n.code, n.feature); },
+  loadMoreSpecies: () => loadMoreSpecies(),
   ICONS,
   get _state() { return state; },
 };
@@ -117,8 +125,9 @@ function setLocationLabel(name) {
 }
 function showSkeletons() {
   document.getElementById('controls-section').style.display = 'block';
+  document.getElementById('result-count').textContent = '…';
   document.getElementById('results').innerHTML =
-    '<div class="species-list">' + Array(8).fill('<div class="skeleton-card"></div>').join('') + '</div>';
+    '<div class="species-list">' + Array(3).fill('<div class="skeleton-card"></div>').join('') + '</div>';
 }
 
 // ─── Tab switching ──────────────────────────────────────────────
@@ -205,11 +214,12 @@ function initFiltersSheetSwipe() {
   }, { passive: true });
 
   sheet.addEventListener('touchend', () => {
-    sheet.style.transition = '';
-    if (swipeDelta > 100) {
+    if (swipeDelta > 80) {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = 'translateY(110%)';
-      setTimeout(() => { sheet.style.transform = ''; closeFiltersSheet(); }, 220);
+      setTimeout(() => { sheet.style.transform = ''; closeFiltersSheet(); }, 200);
     } else {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = '';
     }
   });
@@ -314,7 +324,7 @@ function syncModalLogBtn(speciesId) {
   if (!btn) return;
   const m = state.allMoths.find(x => String(x.id) === String(speciesId));
   const logged = m ? hasSighting(m.sci) : false;
-  btn.className = logged ? 'btn btn-logged modal-log-btn' : 'btn btn-primary modal-log-btn';
+  btn.className = logged ? 'btn btn-logged modal-sticky-log' : 'btn btn-primary modal-sticky-log';
   btn.textContent = logged ? '✓ Logged' : '+ Log Sighting';
 }
 
@@ -567,9 +577,10 @@ async function onNeighborClick(code, feature) {
     document.getElementById('results').innerHTML = `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No records found.</div>`;
     return;
   }
-  state.allMoths = mothData;
+  // allMoths already set by fetchSpeciesForEco
   setStatus('');
   renderMoths();
+  updateMyListBadge();
 }
 
 function getBboxFromFeature(feature) {
@@ -584,13 +595,31 @@ function getBboxFromFeature(feature) {
 
 // ─── Species fetch with cache ─────────────────────────────────
 async function fetchSpeciesForEco(ecoObj) {
+  const opts = { bbox: ecoObj.bbox };
   const sk = speciesKey({ bbox: ecoObj.bbox, _lat: state.currentLat, _lng: state.currentLng });
-  let data = getCache('species', sk);
-  if (!data) {
-    data = await fetchAllSpecies(state.currentLat, state.currentLng, { bbox: ecoObj.bbox });
-    if (data?.length) setCache('species', sk, data);
+
+  // Full cache hit (all pages previously loaded)
+  const cached = getCache('species', sk);
+  if (cached?.length) {
+    state.allMoths = cached;
+    state.speciesPage = -1;
+    state.speciesTotalAPI = cached.length;
+    state.speciesAllLoaded = true;
+    showCacheAge(sk);
+    return cached;
   }
-  return data;
+
+  // Start paginated load (page 1)
+  _initSpeciesPagination(sk, opts);
+  const result = await fetchSpeciesPage(state.currentLat, state.currentLng, opts, 1);
+  if (!result?.species?.length) return null;
+
+  state.allMoths = result.species;
+  state.speciesPage = 1;
+  state.speciesTotalAPI = result.total;
+  state.speciesAllLoaded = !result.hasMore;
+  if (state.speciesAllLoaded) { setCache('species', sk, state.allMoths); showCacheAge(sk); }
+  return state.allMoths;
 }
 
 // Switches to Forecast tab and loads species for the given ecoregion.
@@ -616,9 +645,58 @@ async function jumpToEcoregion(ecoObj) {
       `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No records found.</div>`;
     return;
   }
-  state.allMoths = mothData;
+  // allMoths already set by fetchSpeciesForEco
   setStatus('');
   renderMoths();
+}
+
+// ─── Species pagination ───────────────────────────────────────
+function _initSpeciesPagination(sk, opts) {
+  _speciesSk = sk;
+  _speciesOpts = opts;
+  _speciesLoading = false;
+  state.allMoths = [];
+  state.speciesPage = 0;
+  state.speciesTotalAPI = null;
+  state.speciesAllLoaded = false;
+  resetSpeciesPagination();
+}
+
+function _mergeNewSpecies(incoming) {
+  const seen = new Set(state.allMoths.map(m => (m.sci || '').toLowerCase().trim()));
+  return incoming.filter(m => !seen.has((m.sci || '').toLowerCase().trim()));
+}
+
+async function _loadSpeciesPage() {
+  if (_speciesLoading || state.speciesAllLoaded || !_speciesSk) return;
+  _speciesLoading = true;
+  const page = state.speciesPage + 1;
+  try {
+    const result = await fetchSpeciesPage(state.currentLat, state.currentLng, _speciesOpts, page);
+    const newSpecies = _mergeNewSpecies(result.species || []);
+    state.allMoths = [...state.allMoths, ...newSpecies];
+    state.speciesPage = page;
+    if (result.total != null) state.speciesTotalAPI = result.total;
+    state.speciesAllLoaded = !result.hasMore;
+    if (state.speciesAllLoaded && _speciesSk) {
+      setCache('species', _speciesSk, state.allMoths);
+      showCacheAge(_speciesSk);
+    }
+    renderMoths();
+  } catch(e) {
+    state.speciesAllLoaded = false;
+    renderMoths();
+  } finally {
+    _speciesLoading = false;
+  }
+}
+
+async function loadMoreSpecies() {
+  if (_speciesLoading || state.speciesAllLoaded) return;
+  // Optimistically update button before async work
+  const btn = document.getElementById('species-load-more-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  await _loadSpeciesPage();
 }
 
 // ─── Cache helpers ────────────────────────────────────────────
@@ -631,16 +709,34 @@ function speciesKey(opts) {
     : `rad_${Math.round(opts._lat * 10)}_${Math.round(opts._lng * 10)}`;
 }
 function showCacheAge(sk) {
-  const ageMs = getCacheAge('species', sk);
+  _lastSpeciesKey = sk;
+  _updateCacheAgeDisplay();
+  if (!_cacheAgeTimer) _cacheAgeTimer = setInterval(_updateCacheAgeDisplay, 60000);
+}
+
+function _updateCacheAgeDisplay() {
   const el = document.getElementById('cache-age-note');
-  if (!el || !ageMs) return;
+  if (!el || !_lastSpeciesKey) return;
+  const ageMs = getCacheAge('species', _lastSpeciesKey);
+  if (!ageMs) { el.style.display = 'none'; return; }
   const ageMin = Math.round(ageMs / 60000);
-  el.textContent = ageMin < 1 ? '' : `Updated ${ageMin < 60 ? ageMin + 'm' : Math.round(ageMin / 60) + 'h'} ago`;
-  el.style.display = ageMin < 1 ? 'none' : 'block';
+  let text;
+  if (ageMs < 60000) text = 'Updated just now';
+  else if (ageMin < 60) text = `Updated ${ageMin}m ago`;
+  else if (ageMin < 1440) text = `Updated ${Math.round(ageMin / 60)}h ago`;
+  else text = 'Updated yesterday';
+  el.textContent = text;
+  el.style.display = 'block';
 }
 
 // ─── Main fetch ───────────────────────────────────────────────
 async function fetchAll(lat, lng, locationName) {
+  resetSpeciesPagination();
+  clearGBIFCache();
+  state.speciesPage = 1;
+  state.speciesAllLoaded = false;
+  state.speciesTotalAPI = 0;
+  state.allMoths = [];
   state.currentLat = lat;
   state.currentLng = lng;
   state.currentName = locationName;
@@ -665,6 +761,9 @@ async function fetchAll(lat, lng, locationName) {
     state.nowIndex = findNowIndex(cachedHours);
     state.peakIndex = findPeakIndex(cachedHours, state.nowIndex);
     state.allMoths = cachedMoths;
+    state.speciesPage = -1;
+    state.speciesTotalAPI = cachedMoths.length;
+    state.speciesAllLoaded = true;
     document.getElementById('timeline-section').style.display = 'block';
     selectHour(state.peakIndex);
     document.getElementById('controls-section').style.display = 'block';
@@ -673,7 +772,7 @@ async function fetchAll(lat, lng, locationName) {
     updateMyListBadge();
     showCacheAge(sk);
     setStatus('');
-    // Silent background refresh of weather (most time-sensitive)
+    // Silent background refresh of weather
     if (!getCache('weather', gk)) {
       fetchForecast(lat, lng).then(hours => {
         if (!hours?.length) return;
@@ -684,20 +783,17 @@ async function fetchAll(lat, lng, locationName) {
         selectHour(state.peakIndex);
       }).catch(() => {});
     }
-    // Silent background refresh of species
+    // Silent background re-paginate species if cache is stale
     if (!getCache('species', sk)) {
-      fetchAllSpecies(lat, lng, qOpts).then(data => {
-        if (!data?.length) return;
-        setCache('species', sk, data);
-        state.allMoths = data;
-        renderMoths();
-        showCacheAge(sk);
-      }).catch(() => {});
+      _initSpeciesPagination(sk, qOpts);
+      state.allMoths = cachedMoths; // keep stale data visible
+      state.speciesAllLoaded = true; // hide load-more while refreshing
+      _loadSpeciesPage().catch(() => {});
     }
     return;
   }
 
-  // Full loading path
+  // Full loading path — show first page immediately
   setStatus(`Loading forecast for ${locationName}…`);
   showSkeletons();
   document.getElementById('conditions-section').style.display = 'none';
@@ -705,7 +801,7 @@ async function fetchAll(lat, lng, locationName) {
   updateEcoSelect(null, []);
   document.getElementById('cache-age-note').style.display = 'none';
 
-  // Ecoregion — use cache if fresh, else fetch
+  // Ecoregion
   let ecoData = getCache('ecoregion', gk);
   if (!ecoData) {
     ecoData = await fetchEcoregionAtPoint(lat, lng);
@@ -718,7 +814,7 @@ async function fetchAll(lat, lng, locationName) {
     setEcoregionLayers(ecoData.feature, [], () => {});
   }
 
-  // Weather — use cache if fresh, else fetch
+  // Weather
   let hours = getCache('weather', gk);
   if (!hours) {
     hours = await fetchForecast(lat, lng);
@@ -728,15 +824,31 @@ async function fetchAll(lat, lng, locationName) {
   const queryOpts = ecoData ? { bbox: ecoData.bbox } : { radiusKm: FALLBACK_RADIUS_KM, _lat: lat, _lng: lng };
   const sKey = speciesKey({ ...queryOpts, _lat: lat, _lng: lng });
 
-  // Species, habitat, neighbors, moon in parallel
-  let mothData = getCache('species', sKey);
-  const [freshMoths, habitatData, neighbors, moonDaily] = await Promise.all([
-    mothData ? Promise.resolve(null) : fetchAllSpecies(lat, lng, queryOpts),
+  // Check for full species cache
+  const cachedSpecies = getCache('species', sKey);
+
+  // Fetch habitat, neighbors, moon in parallel with species page 1
+  _initSpeciesPagination(sKey, queryOpts);
+  const [firstPage, habitatData, neighbors, moonDaily] = await Promise.all([
+    cachedSpecies?.length ? Promise.resolve(null) : fetchSpeciesPage(lat, lng, queryOpts, 1),
     fetchHabitat(lat, lng, ecoData ? 50 : FALLBACK_RADIUS_KM),
     ecoData ? fetchNeighboringEcoregions(ecoData.bbox, ecoData.code) : Promise.resolve([]),
     fetchMoonData(lat, lng),
   ]);
-  if (freshMoths?.length) { setCache('species', sKey, freshMoths); mothData = freshMoths; }
+
+  if (cachedSpecies?.length) {
+    state.allMoths = cachedSpecies;
+    state.speciesPage = -1;
+    state.speciesTotalAPI = cachedSpecies.length;
+    state.speciesAllLoaded = true;
+    showCacheAge(sKey);
+  } else if (firstPage?.species?.length) {
+    state.allMoths = firstPage.species;
+    state.speciesPage = 1;
+    state.speciesTotalAPI = firstPage.total;
+    state.speciesAllLoaded = !firstPage.hasMore;
+    if (state.speciesAllLoaded) { setCache('species', sKey, state.allMoths); showCacheAge(sKey); }
+  }
 
   state.habitat = habitatData;
   state.forecastDaily = moonDaily || [];
@@ -753,19 +865,12 @@ async function fetchAll(lat, lng, locationName) {
     setStatus('Could not load forecast. Check your connection.', true);
   }
 
-  if (!mothData) {
-    setStatus('Could not load species data. Check your connection.', true);
-    document.getElementById('results').innerHTML = '';
-    return;
-  }
-
-  state.allMoths = mothData;
-
   if (!state.allMoths.length) {
     setStatus('');
     const area = ecoData ? `the ${ecoData.name} ecoregion` : `within ${FALLBACK_RADIUS_KM}km`;
     document.getElementById('results').innerHTML =
       `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.moon}</span>No moth records found in ${area} for this time of year.</div>`;
+    document.getElementById('controls-section').style.display = 'none';
     return;
   }
 
@@ -773,7 +878,7 @@ async function fetchAll(lat, lng, locationName) {
   document.getElementById('controls-section').style.display = 'block';
   renderMoths();
   updateMyListBadge();
-  showCacheAge(sKey);
+  if (!state.speciesAllLoaded) showCacheAge(sKey);
 }
 
 // ─── Search / geolocation ─────────────────────────────────────
@@ -816,12 +921,6 @@ function shareMoth(id) {
 // ─── Init ─────────────────────────────────────────────────────
 // Moon icon — innerHTML only; click is handled by parent .home-btn button
 document.getElementById('header-moon-icon').innerHTML = moonPhaseSVG(getMoonPhase().fraction);
-// Double-chevron SVGs indicate day-step navigation
-const DBLCHEV_L = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`;
-const DBLCHEV_R = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 17 11 12 6 7"/><polyline points="13 17 18 12 13 7"/></svg>`;
-document.getElementById('icon-chevleft').innerHTML = DBLCHEV_L;
-document.getElementById('icon-chevright').innerHTML = DBLCHEV_R;
-document.getElementById('icon-star-badge').innerHTML = ICONS.star;
 
 document.getElementById('loc-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchByText(); });
 document.addEventListener('keydown', e => {
@@ -853,15 +952,156 @@ function initLocationSheetSwipe() {
   }, { passive: true });
 
   sheet.addEventListener('touchend', () => {
-    sheet.style.transition = '';
-    if (swipeDelta > 100) {
+    if (swipeDelta > 80) {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = 'translateY(110%)';
-      setTimeout(() => {
-        sheet.style.transform = '';
-        toggleLocationSheet(false);
-      }, 220);
+      setTimeout(() => { sheet.style.transform = ''; toggleLocationSheet(false); }, 200);
     } else {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = '';
+    }
+  });
+}
+
+// ─── Pull-to-refresh ──────────────────────────────────────────
+function initPullToRefresh() {
+  const container = document.getElementById('tab-forecast');
+  container.style.overscrollBehavior = 'none';
+
+  const REFRESH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`;
+  const indicator = document.createElement('div');
+  indicator.id = 'ptr-indicator';
+  indicator.innerHTML = `<span id="ptr-icon">${REFRESH_SVG}</span>`;
+  document.body.appendChild(indicator);
+
+  const PTR_START = 20, PTR_FULL = 60, MAX_CONTENT_SHIFT = 40;
+  const DAMP = MAX_CONTENT_SHIFT / PTR_FULL;
+  let startY = 0, startX = 0, pullDy = 0, intentV = null;
+  let ptrEnabled = false, pulling = false, ptrReady = false;
+
+  function icon() { return document.getElementById('ptr-icon'); }
+
+  function snapContent(animate = true) {
+    if (animate) {
+      container.style.transition = 'transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94)';
+      setTimeout(() => { container.style.transition = ''; }, 300);
+    }
+    container.style.transform = '';
+  }
+
+  container.addEventListener('touchstart', e => {
+    ptrEnabled = container.classList.contains('active') && window.scrollY <= 5;
+    if (!ptrEnabled) return;
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    pullDy = 0; intentV = null; pulling = false; ptrReady = false;
+    container.style.transition = 'none';
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (!ptrEnabled) return;
+    const dy = e.touches[0].clientY - startY;
+    const dx = e.touches[0].clientX - startX;
+    if (intentV === null && (Math.abs(dy) > 8 || Math.abs(dx) > 8)) {
+      intentV = Math.abs(dy) > Math.abs(dx);
+    }
+    if (!intentV || dy <= 0) return;
+    e.preventDefault();
+    pullDy = dy;
+    pulling = true;
+
+    if (pullDy >= PTR_FULL) {
+      // Phase 2 — ready, lock everything
+      if (!ptrReady) {
+        ptrReady = true;
+        indicator.style.opacity = '1';
+        indicator.style.transform = 'translateX(-50%) scale(1)';
+        const ic = icon();
+        ic.style.transform = '';
+        ic.classList.add('ptr-ready');
+      }
+      container.style.transform = `translateY(${MAX_CONTENT_SHIFT}px)`;
+    } else {
+      // Phase 1 — follow finger proportionally
+      ptrReady = false;
+      const ic = icon();
+      ic.classList.remove('ptr-ready');
+      const progress = Math.max(0, (pullDy - PTR_START) / (PTR_FULL - PTR_START));
+      indicator.style.opacity = String(progress);
+      indicator.style.transform = `translateX(-50%) scale(${0.4 + progress * 0.6})`;
+      ic.style.transform = `rotate(${progress * 45}deg)`;
+      container.style.transform = `translateY(${pullDy * DAMP}px)`;
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', async () => {
+    if (!pulling) return;
+    pulling = false;
+    snapContent(true);
+
+    if (pullDy >= PTR_FULL) {
+      // Phase 3 — refreshing
+      const ic = icon();
+      ic.classList.remove('ptr-ready');
+      ic.style.transform = '';
+      ic.classList.add('spinning');
+      indicator.style.opacity = '1';
+      indicator.style.transform = 'translateX(-50%) scale(1)';
+      indicator.style.transition = 'none';
+      if (state.currentLat != null && state.currentLng != null) {
+        try { await fetchAll(state.currentLat, state.currentLng, state.currentName || ''); }
+        catch { /* non-fatal */ }
+      }
+      // Phase 4 — complete
+      ic.classList.remove('spinning');
+      indicator.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      indicator.style.opacity = '0';
+      indicator.style.transform = 'translateX(-50%) scale(0.8)';
+      setTimeout(() => { indicator.style.transition = ''; ic.style.transform = ''; }, 300);
+    } else {
+      // Abort
+      icon().classList.remove('ptr-ready');
+      icon().style.transform = '';
+      indicator.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      indicator.style.opacity = '0';
+      indicator.style.transform = 'translateX(-50%) scale(0)';
+      setTimeout(() => { indicator.style.transition = ''; }, 200);
+    }
+    pullDy = 0;
+    ptrReady = false;
+  }, { passive: true });
+}
+
+// ─── Moon panel swipe-down dismiss ────────────────────────────
+function initMoonPanelSwipe() {
+  const panel = document.getElementById('moon-panel');
+  let startY = 0, swipeDelta = 0;
+  panel.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    swipeDelta = 0;
+    panel.style.transition = 'none';
+  }, { passive: true });
+  panel.addEventListener('touchmove', e => {
+    const d = e.touches[0].clientY - startY;
+    if (d > 0 && panel.scrollTop === 0) {
+      swipeDelta = d;
+      panel.style.transform = `translateY(${d}px)`;
+    }
+  }, { passive: true });
+  panel.addEventListener('touchend', () => {
+    if (swipeDelta > 80) {
+      panel.style.transition = 'transform 0.2s ease';
+      panel.style.transform = 'translateY(110%)';
+      setTimeout(() => {
+        panel.style.transform = '';
+        panel.style.transition = '';
+        _moonPanelOpen = false;
+        panel.classList.remove('open');
+        document.getElementById('moon-panel-backdrop').style.display = 'none';
+      }, 200);
+    } else {
+      panel.style.transition = '';  // restore CSS transition for snap-back
+      panel.style.transform = '';
     }
   });
 }
@@ -921,6 +1161,8 @@ function initSafeArea() {
 initSafeArea();
 initLocationSheetSwipe();
 initFiltersSheetSwipe();
+initMoonPanelSwipe();
+initPullToRefresh();
 initBackButton();
 
 initTheme();

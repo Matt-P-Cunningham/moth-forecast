@@ -48,15 +48,35 @@ export function renderMoths() {
   const mode = getViewMode();
   syncToggleButtons(mode);
 
-  document.getElementById('result-count').textContent = `${moths.length} species`;
+  // Species count — show loading progress when paginating
+  const countEl = document.getElementById('result-count');
+  if (!state.speciesAllLoaded && state.allMoths.length > 0) {
+    const total = state.speciesTotalAPI;
+    countEl.textContent = total
+      ? `Showing ${state.allMoths.length} of ${total} species`
+      : `${state.allMoths.length}+ species`;
+  } else {
+    countEl.textContent = `${moths.length} species`;
+  }
+
   const r = document.getElementById('results');
+  const loadMoreHtml = _loadMoreHtml();
+
   if (!moths.length) {
-    r.innerHTML = `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.search}</span>No moths match this filter.</div>`;
+    r.innerHTML = `<div class="empty"><span class="icon icon-xl icon-muted">${ICONS.search}</span>No moths match this filter.</div>` + loadMoreHtml;
     return;
   }
 
   const listClass = mode === 'grid' ? 'species-list species-list--grid' : 'species-list';
-  r.innerHTML = `<div class="${listClass}">` + moths.map(m => renderCard(m, currentMonth, mode)).join('') + '</div>';
+  r.innerHTML = `<div class="${listClass}">` + moths.map(m => renderCard(m, currentMonth, mode)).join('') + `</div>` + loadMoreHtml;
+}
+
+function _loadMoreHtml() {
+  if (state.speciesAllLoaded) {
+    const n = state.allMoths.length;
+    return n > 0 ? `<p class="species-load-complete">All ${n} species loaded</p>` : '';
+  }
+  return `<button id="species-load-more-btn" class="species-load-more" onclick="window.__mothApp.loadMoreSpecies()">Load 25 more species</button>`;
 }
 
 function renderCard(m, currentMonth, mode) {

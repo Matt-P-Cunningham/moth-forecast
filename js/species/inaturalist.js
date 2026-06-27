@@ -1,11 +1,10 @@
 import { INATURALIST_API, MOTH_TAXON_ID, BUTTERFLY_TAXON_ID } from '../config.js';
 import { getMonths } from '../utils.js';
 
-export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}) {
+export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}, page = 1, perPage = 25) {
   try {
     let geoParams;
     if (bbox) {
-      // Use ecoregion bounding box for US locations
       geoParams = `&swlat=${bbox.swlat}&swlng=${bbox.swlng}&nelat=${bbox.nelat}&nelng=${bbox.nelng}`;
     } else {
       geoParams = `&lat=${lat}&lng=${lng}&radius=${radiusKm}`;
@@ -15,11 +14,12 @@ export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}) {
       `?taxon_id=${MOTH_TAXON_ID}&without_taxon_id=${BUTTERFLY_TAXON_ID}` +
       geoParams +
       `&month=${getMonths()}&quality_grade=research,needs_id` +
-      `&per_page=200&order=desc&order_by=observations_count`;
+      `&per_page=${perPage}&page=${page}&order=desc&order_by=observations_count`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('iNat API error');
     const data = await res.json();
-    return (data.results || []).map(r => {
+    const total = data.total_results ?? 0;
+    const species = (data.results || []).map(r => {
       const taxon = r.taxon || {};
       const p = taxon.default_photo || null;
       return {
@@ -37,7 +37,11 @@ export async function fetchINat(lat, lng, { bbox, radiusKm = 100 } = {}) {
         habitatAffinity: [],
       };
     }).filter(m => m.id);
-  } catch(e) { return null; }
+
+    return { species, total, hasMore: page * perPage < total };
+  } catch(e) {
+    return { species: [], total: 0, hasMore: false };
+  }
 }
 
 export async function fetchInatTaxonPhotos(taxonId) {

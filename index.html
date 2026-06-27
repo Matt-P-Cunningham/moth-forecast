@@ -135,18 +135,21 @@
 
   <!-- Timeline -->
   <div id="timeline-section" style="display:none">
-    <div class="time-bar">
+    <div class="time-bar-date">
+      <span id="selected-time-label">—</span>
+    </div>
+    <div class="time-bar-controls">
       <button class="tl-nav-btn" id="prev-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex - 24)" aria-label="Previous day">
-        <span class="icon" id="icon-chevleft" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
       </button>
-      <div id="selected-time-label">—</div>
-      <span class="peak-badge" id="peak-badge">
-        <span class="icon" id="icon-star-badge" aria-hidden="true"></span>Peak
-      </span>
+      <button class="tl-ctrl-btn tl-peak-btn" id="peak-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.peakIndex)">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" width="11" height="11"><path d="M12 2l2.9 6.3 6.9.9-5 4.9 1.2 6.9L12 17.8 5.9 21l1.2-6.9-5-4.9 6.9-.9z"/></svg>
+        Peak
+      </button>
+      <button class="tl-ctrl-btn" id="now-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.nowIndex)">Now</button>
       <button class="tl-nav-btn" id="next-hour" onclick="window.__mothApp.selectHour(window.__mothApp._state.selectedIndex + 24)" aria-label="Next day">
-        <span class="icon" id="icon-chevright" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 17 11 12 6 7"/><polyline points="13 17 18 12 13 7"/></svg>
       </button>
-      <button class="now-btn" onclick="window.__mothApp.selectHour(window.__mothApp._state.nowIndex)">Now</button>
     </div>
     <div class="timeline-scroll" id="timeline-scroll"></div>
   </div>

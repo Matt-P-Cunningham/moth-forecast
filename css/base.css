@@ -1,9 +1,7 @@
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;scrollbar-width:none !important;-ms-overflow-style:none !important}
+*::-webkit-scrollbar{display:none !important}
 /* Hide scrollbars — this is a Capacitor mobile app; scrollbars don't belong */
-*{scrollbar-width:none;-ms-overflow-style:none}
-::-webkit-scrollbar{display:none}
-html,body{scrollbar-width:none;-ms-overflow-style:none;overflow-x:hidden}
-html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+html,body{overflow-x:hidden}
 :root{
   /* Dark field-guide palette */
   --bg:#0d1210;

@@ -101,7 +101,7 @@
 }
 #explore-map{position:absolute;inset:0}
 
-/* CartoDB dark tiles need no extra dimming — remove brightness filter for explore map */
+/* Esri tiles are light — cancel the global dark-mode dimming filter */
 #explore-map .leaflet-tile-pane{filter:none}
 
 .explore-offline-overlay{

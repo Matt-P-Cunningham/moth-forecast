@@ -186,11 +186,12 @@ export function openScoreSheet() {
     }
   }, { passive: true });
   sheet.addEventListener('touchend', () => {
-    sheet.style.transition = '';
-    if (swipeDelta > 100) {
+    if (swipeDelta > 80) {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = 'translateY(110%)';
-      setTimeout(closeScoreSheet, 220);
+      setTimeout(closeScoreSheet, 200);
     } else {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = '';
     }
   });

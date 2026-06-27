@@ -1,23 +1,27 @@
 import { fetchINat } from './inaturalist.js';
-import { fetchGBIF } from './gbif.js';
+import { fetchGBIFPage, clearGBIFCache } from './gbif.js';
 
-// opts: { bbox, radiusKm }
-// bbox comes from the selected ecoregion (US only); radiusKm is the non-US fallback
-export async function fetchAllSpecies(lat, lng, opts = {}) {
-  const [inatResults, gbifResults] = await Promise.all([
-    fetchINat(lat, lng, opts),
-    fetchGBIF(lat, lng, opts),
+export const SPECIES_PER_PAGE = 25;
+
+export function resetSpeciesPagination() {
+  clearGBIFCache();
+}
+
+export { clearGBIFCache } from './gbif.js';
+
+export async function fetchSpeciesPage(lat, lng, opts = {}, page = 1) {
+  const [inat, gbif] = await Promise.all([
+    fetchINat(lat, lng, opts, page, SPECIES_PER_PAGE),
+    fetchGBIFPage(lat, lng, opts, page, SPECIES_PER_PAGE),
   ]);
-
-  if (!inatResults && !gbifResults.length) return null;
 
   const byName = new Map();
 
-  for (const m of (inatResults || [])) {
+  for (const m of (inat.species || [])) {
     byName.set(normalizeKey(m.sci), { ...m, inatCount: m.count });
   }
 
-  for (const g of gbifResults) {
+  for (const g of (gbif.species || [])) {
     const key = normalizeKey(g.sci);
     if (byName.has(key)) {
       const existing = byName.get(key);
@@ -35,7 +39,14 @@ export async function fetchAllSpecies(lat, lng, opts = {}) {
     }
   }
 
-  return [...byName.values()];
+  const hasMore = inat.hasMore || gbif.hasMore;
+  const total = inat.total > 0 ? inat.total : (gbif.total > 0 ? gbif.total : null);
+
+  return {
+    species: [...byName.values()],
+    total,
+    hasMore,
+  };
 }
 
 function normalizeKey(name) {

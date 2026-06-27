@@ -12,4 +12,8 @@ export const state = {
   // ecoregion: { code, name, l2name, l1name, bbox, feature } | null
   // null = non-US location, falls back to 100km radius
   ecoregion: null,
+  // Species pagination
+  speciesPage: 0,
+  speciesTotalAPI: null,
+  speciesAllLoaded: false,
 };

@@ -4,7 +4,6 @@ import { escapeHTML } from '../utils.js';
 
 const EPA_L3 = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/11';
 const EPA_L4 = 'https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/7';
-const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_matter_lite/{z}/{x}/{y}{r}.png';
 const MILES_TO_KM = 1.60934;
 const DEG_PER_MILE = 1 / 69.0;
 
@@ -169,11 +168,10 @@ function _initMap() {
   _map = L.map('explore-map', { zoomControl: true, attributionControl: true })
            .setView([_centerLat, _centerLng], 6);
 
-  L.tileLayer(DARK_TILES, {
-    maxZoom: 18,
-    subdomains: 'abcd',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  }).addTo(_map);
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri', maxZoom: 19 }
+  ).addTo(_map);
 
   _l3Group = L.layerGroup().addTo(_map);
   _drawRadiusCircle();
@@ -321,11 +319,14 @@ function _initSheetSwipe() {
     if (d > 0) { delta = d; sheet.style.transform = `translateY(${d}px)`; }
   }, { passive: true });
   sheet.addEventListener('touchend', () => {
-    sheet.style.transition = '';
-    if (delta > 100) {
+    if (delta > 80) {
+      sheet.style.transition = 'transform 0.2s ease';
       sheet.style.transform = 'translateY(110%)';
-      setTimeout(() => { sheet.style.transform = ''; closeExploreSheet(); }, 220);
-    } else { sheet.style.transform = ''; }
+      setTimeout(() => { sheet.style.transform = ''; closeExploreSheet(); }, 200);
+    } else {
+      sheet.style.transition = 'transform 0.2s ease';
+      sheet.style.transform = '';
+    }
   });
 }
 
